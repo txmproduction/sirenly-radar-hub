@@ -36,6 +36,27 @@ export const Route = createFileRoute("/campagnes/$id")({
 function CampagneDetail() {
   const { id } = Route.useParams();
   useRealtime("emails_envoyes", ["campagne-detail"]);
+  const qc = useQueryClient();
+  const envoyer = useServerFn(lancerCampagne);
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+
+  async function lancer() {
+    setEnvoiEnCours(true);
+    try {
+      const r = await envoyer({ data: { campagneId: id } });
+      toast.success(
+        `${r.envoyes} email(s) envoyé(s), ${r.exclus} lead(s) exclu(s) faute d'email valide` +
+          (r.programmes ? `, ${r.programmes} programmé(s)` : "") +
+          (r.echecs ? `, ${r.echecs} échec(s)` : ""),
+      );
+      void qc.invalidateQueries({ queryKey: ["campagne-detail", id] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Envoi impossible");
+    } finally {
+      setEnvoiEnCours(false);
+    }
+  }
+
 
   const { data } = useQuery({
     queryKey: ["campagne-detail", id],
