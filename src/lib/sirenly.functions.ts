@@ -305,7 +305,7 @@ export const lancerCampagne = createServerFn({ method: "POST" })
       .update({ statut: programmes > 0 ? "en_cours" : "terminee", date_maj: new Date().toISOString() })
       .eq("id", campagne.id);
 
-    return { envoyes, programmes, echecs };
+    return { envoyes, programmes, echecs, exclus };
   });
 
 /* --------------------------- Classification manuelle ------------------------- */
