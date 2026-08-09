@@ -4,7 +4,7 @@ import { z } from "zod";
 import { SECTEURS } from "./secteurs";
 import { fetchBodacc, enrichWithGoogle, isExcluded, normalize } from "./sirenly.server";
 import { fetchEntreprisesEtablies } from "./entreprises.server";
-import { enrichirPresence } from "./enrichment.server";
+import { enrichirPresence, emailValide } from "./enrichment.server";
 import { aiPersonalize, aiClassifyReply } from "./ai.server";
 import { envoyerEmailBrevo } from "./brevo.server";
 
@@ -317,3 +317,50 @@ export const classifierReponse = createServerFn({ method: "POST" })
     await supabase.from("reponses_emails").update({ classification }).eq("id", rep.id);
     return { classification };
   });
+
+/* ------------------- Réparation des emails invalides en base ------------------- */
+
+export const reparerEmailsInvalides = createServerFn({ method: "POST" }).handler(async () => {
+  const supabase = await admin();
+
+  const { data: leads } = await supabase
+    .from("leads")
+    .select("id, nom, commune, activite, site_web, telephone, email, tags")
+    .not("email", "is", null);
+
+  const suspects = (leads ?? []).filter((l) => !emailValide(String(l.email ?? "")));
+  let corriges = 0;
+  let reenrichis = 0;
+
+  for (const l of suspects) {
+    const presence = await enrichirPresence({
+      nom: l.nom ?? "",
+      commune: l.commune ?? "",
+      activite: l.activite ?? "",
+      site_web: l.site_web ?? "",
+      telephone: l.telephone ?? "",
+    });
+
+    const patch: Record<string, unknown> = {
+      email: presence.email || null,
+      email_source: presence.email_source || null,
+      tags: presence.tags,
+      date_maj: new Date().toISOString(),
+    };
+    if (presence.site_web) patch["site_web"] = presence.site_web;
+    if (presence.telephone) patch["telephone"] = presence.telephone;
+    if (presence.facebook_url) patch["facebook_url"] = presence.facebook_url;
+    if (presence.instagram_url) patch["instagram_url"] = presence.instagram_url;
+    if (presence.linkedin_url) patch["linkedin_url"] = presence.linkedin_url;
+    if (presence.tiktok_url) patch["tiktok_url"] = presence.tiktok_url;
+    if (presence.fiches_annuaires.length) patch["fiches_annuaires"] = presence.fiches_annuaires;
+
+    const { error } = await supabase.from("leads").update(patch).eq("id", l.id);
+    if (!error) {
+      corriges += 1;
+      if (presence.email) reenrichis += 1;
+    }
+  }
+
+  return { analyses: (leads ?? []).length, suspects: suspects.length, corriges, reenrichis };
+});

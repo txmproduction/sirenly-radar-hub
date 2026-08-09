@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { SECTEURS, TRANCHES_EFFECTIF, secteurLabel } from "@/lib/secteurs";
-import { generateLeads } from "@/lib/sirenly.functions";
+import { generateLeads, reparerEmailsInvalides } from "@/lib/sirenly.functions";
 import { formatDate } from "@/lib/sirenly";
 
 export const Route = createFileRoute("/radar")({
@@ -32,6 +32,24 @@ export const Route = createFileRoute("/radar")({
 function RadarPage() {
   const qc = useQueryClient();
   const lancer = useServerFn(generateLeads);
+  const reparer = useServerFn(reparerEmailsInvalides);
+  const [reparation, setReparation] = useState(false);
+
+  async function lancerReparation() {
+    setReparation(true);
+    try {
+      const res = await reparer({});
+      toast.success(
+        `${res.suspects} email(s) invalide(s) · ${res.corriges} corrigé(s) · ${res.reenrichis} nouvel(le)s adresse(s)`,
+      );
+      void qc.invalidateQueries({ queryKey: ["leads-liste"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur de réparation");
+    } finally {
+      setReparation(false);
+    }
+  }
+
 
   const [source, setSource] = useState<"bodacc" | "etablies">("bodacc");
   const [departement, setDepartement] = useState("74");
@@ -129,6 +147,25 @@ function RadarPage() {
           </button>
         ))}
       </div>
+
+      <div className="panel flex flex-wrap items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-sm font-medium">Nettoyer les emails invalides</p>
+          <p className="text-sm text-muted-foreground">
+            Détecte les faux positifs (moteurs de recherche, adresses techniques) et relance la
+            cascade d'enrichissement sur ces leads.
+          </p>
+        </div>
+        <button
+          onClick={lancerReparation}
+          disabled={reparation}
+          className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
+        >
+          {reparation ? "Réparation…" : "Réparer les emails"}
+        </button>
+      </div>
+
+
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="panel space-y-6 p-6">
