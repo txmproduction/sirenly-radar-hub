@@ -4,6 +4,7 @@ import { z } from "zod";
 import { SECTEURS } from "./secteurs";
 import { fetchBodacc, enrichWithGoogle, isExcluded, normalize } from "./sirenly.server";
 import { fetchEntreprisesEtablies } from "./entreprises.server";
+import { enrichirPresence } from "./enrichment.server";
 import { aiPersonalize, aiClassifyReply } from "./ai.server";
 import { envoyerEmailBrevo } from "./brevo.server";
 
@@ -87,7 +88,15 @@ export const generateLeads = createServerFn({ method: "POST" })
     for (const lead of leads) {
       const enrichment = googleKey
         ? await enrichWithGoogle(lead, googleKey)
-        : { note_google: "", nb_avis_google: "", telephone: "" };
+        : { note_google: "", nb_avis_google: "", telephone: "", site_web: "" };
+
+      const presence = await enrichirPresence({
+        nom: lead.nom,
+        commune: lead.commune,
+        activite: lead.activite,
+        site_web: enrichment.site_web,
+        telephone: enrichment.telephone,
+      });
 
       const { data: existing } = await supabase
         .from("leads")
@@ -108,12 +117,25 @@ export const generateLeads = createServerFn({ method: "POST" })
         source: data.source,
         note_google: enrichment.note_google,
         nb_avis_google: enrichment.nb_avis_google,
-        telephone: enrichment.telephone,
+        telephone: presence.telephone || enrichment.telephone,
+        email: presence.email || null,
+        email_source: presence.email_source || null,
+        site_web: presence.site_web || null,
+        facebook_url: presence.facebook_url || null,
+        instagram_url: presence.instagram_url || null,
+        linkedin_url: presence.linkedin_url || null,
+        tiktok_url: presence.tiktok_url || null,
+        fiches_annuaires: presence.fiches_annuaires,
+        tags: presence.tags,
         date_maj: new Date().toISOString(),
       };
 
       if (existing) {
-        const { error } = await supabase.from("leads").update(base).eq("id", lead.id);
+        // Ne pas écraser une donnée existante par une valeur vide
+        const patch = Object.fromEntries(
+          Object.entries(base).filter(([, v]) => v !== null && v !== ""),
+        );
+        const { error } = await supabase.from("leads").update(patch).eq("id", lead.id);
         if (!error) misAJour += 1;
       } else {
         const { error } = await supabase.from("leads").insert({ id: lead.id, ...base });

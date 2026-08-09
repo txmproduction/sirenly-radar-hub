@@ -199,8 +199,13 @@ export type Database = {
           derniere_activite: string
           effectif: string | null
           email: string | null
+          email_source: string | null
+          facebook_url: string | null
+          fiches_annuaires: Json
           forme_juridique: string | null
           id: string
+          instagram_url: string | null
+          linkedin_url: string | null
           nb_avis_google: string | null
           nom: string | null
           note_google: string | null
@@ -209,9 +214,12 @@ export type Database = {
           rdv_date: string | null
           rdv_heure: string | null
           siren: string | null
+          site_web: string | null
           source: string
           statut: string
+          tags: Json
           telephone: string | null
+          tiktok_url: string | null
         }
         Insert: {
           activite?: string | null
@@ -224,8 +232,13 @@ export type Database = {
           derniere_activite?: string
           effectif?: string | null
           email?: string | null
+          email_source?: string | null
+          facebook_url?: string | null
+          fiches_annuaires?: Json
           forme_juridique?: string | null
           id: string
+          instagram_url?: string | null
+          linkedin_url?: string | null
           nb_avis_google?: string | null
           nom?: string | null
           note_google?: string | null
@@ -234,9 +247,12 @@ export type Database = {
           rdv_date?: string | null
           rdv_heure?: string | null
           siren?: string | null
+          site_web?: string | null
           source?: string
           statut?: string
+          tags?: Json
           telephone?: string | null
+          tiktok_url?: string | null
         }
         Update: {
           activite?: string | null
@@ -249,8 +265,13 @@ export type Database = {
           derniere_activite?: string
           effectif?: string | null
           email?: string | null
+          email_source?: string | null
+          facebook_url?: string | null
+          fiches_annuaires?: Json
           forme_juridique?: string | null
           id?: string
+          instagram_url?: string | null
+          linkedin_url?: string | null
           nb_avis_google?: string | null
           nom?: string | null
           note_google?: string | null
@@ -259,9 +280,12 @@ export type Database = {
           rdv_date?: string | null
           rdv_heure?: string | null
           siren?: string | null
+          site_web?: string | null
           source?: string
           statut?: string
+          tags?: Json
           telephone?: string | null
+          tiktok_url?: string | null
         }
         Relationships: []
       }
