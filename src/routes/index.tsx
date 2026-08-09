@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Mail, Percent, Target } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import {
   Area,
   AreaChart,
