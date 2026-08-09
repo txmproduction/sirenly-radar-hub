@@ -80,6 +80,24 @@ function slug(nom: string, commune: string): string {
     .slice(0, 120);
 }
 
+/** Codes de tranche d'effectif correspondant à 250 salariés et plus. */
+const TRANCHES_GRANDES = ["32", "41", "42", "51", "52", "53"];
+
+/** Mentions typiques de têtes de groupe / sièges nationaux. */
+function estGrandGroupe(nom: string, trancheCode: string, seuilTranches: string[]): boolean {
+  if (trancheCode && seuilTranches.includes(trancheCode)) return true;
+  const n = nom.toUpperCase();
+  if (/\b(OPCO|HOLDING|GROUPE)\b/.test(n)) return true;
+  if (/\bFRANCE\s*$/.test(n)) return true;
+  return false;
+}
+
+function departementDe(codePostal: string, dept: string): string {
+  if (!codePostal) return "";
+  if (dept.length === 3) return codePostal.slice(0, 3);
+  return codePostal.slice(0, 2);
+}
+
 /**
  * API Recherche d'Entreprises (data.gouv) — entreprises établies.
  */
@@ -89,10 +107,20 @@ export async function fetchEntreprisesEtablies(params: {
   termes: string[];
   effectifs: string[];
   limite?: number;
+  /** Seuil d'exclusion des grands groupes (par défaut 250 salariés). */
+  seuilEffectif?: number;
 }): Promise<EtablieLead[]> {
   const out: EtablieLead[] = [];
   const seen = new Set<string>();
   const requetes: Array<{ q?: string; naf?: string }> = [];
+  const seuil = params.seuilEffectif ?? 250;
+  const seuilTranches =
+    seuil <= 200
+      ? ["31", ...TRANCHES_GRANDES]
+      : seuil <= 250
+        ? TRANCHES_GRANDES
+        : TRANCHES_GRANDES.slice(1);
+  const dept = params.departement.trim().toUpperCase();
 
   if (params.naf.length) {
     // L'API accepte une liste de codes NAF séparés par des virgules.
@@ -105,7 +133,11 @@ export async function fetchEntreprisesEtablies(params: {
     const url = new URL("https://recherche-entreprises.api.gouv.fr/search");
     if (req.q) url.searchParams.set("q", req.q);
     if (req.naf) url.searchParams.set("activite_principale", req.naf);
-    if (params.departement) url.searchParams.set("departement", params.departement);
+    if (dept) {
+      url.searchParams.set("departement", dept);
+      // Le filtre doit porter sur l'établissement retourné, pas seulement sur l'entreprise.
+      url.searchParams.set("etat_administratif", "A");
+    }
     if (params.effectifs.length)
       url.searchParams.set("tranche_effectif_salarie", params.effectifs.join(","));
     url.searchParams.set("etat_administratif", "A");
@@ -119,7 +151,19 @@ export async function fetchEntreprisesEtablies(params: {
       const siege = e.siege ?? {};
       const nom = s(e.nom_complet) || s(e.nom_raison_sociale);
       const commune = s(siege["libelle_commune"]);
+      const code_postal = s(siege["code_postal"]);
       if (!nom) continue;
+
+      // 1) Filtre département strict (siège / établissement retourné).
+      if (dept) {
+        const deptEtab = s(siege["departement"]) || departementDe(code_postal, dept);
+        if (deptEtab.toUpperCase() !== dept) continue;
+      }
+
+      // 2) Exclusion des grands groupes / sièges nationaux.
+      const trancheCode = s(e.tranche_effectif_salarie) || s(siege["tranche_effectif_salarie"]);
+      if (estGrandGroupe(nom, trancheCode, seuilTranches)) continue;
+
       const id = slug(nom, commune);
       if (seen.has(id)) continue;
       seen.add(id);
@@ -130,20 +174,18 @@ export async function fetchEntreprisesEtablies(params: {
         contact: [s(d?.prenoms), s(d?.nom)].filter(Boolean).join(" "),
         activite: s(siege["libelle_activite_principale"]) || s(e.activite_principale),
         commune,
-        code_postal: s(siege["code_postal"]),
+        code_postal,
         adresse: s(siege["adresse"]).replace(/\s+/g, " "),
         forme_juridique: formeJuridique(
           s(e.categorie_juridique_libelle) || s(e.libelle_nature_juridique),
           s(e.nature_juridique),
         ),
         siren: s(e.siren),
-        effectif:
-          TRANCHE_LABEL[s(e.tranche_effectif_salarie)] ??
-          TRANCHE_LABEL[s(siege["tranche_effectif_salarie"])] ??
-          "Non renseigné",
+        effectif: TRANCHE_LABEL[trancheCode] ?? "Non renseigné",
       });
     }
   }
 
   return out;
 }
+
