@@ -75,6 +75,7 @@ function RadarPage() {
   async function lancerRadar() {
     setChargement(true);
     setResultat(null);
+    setProgression(null);
     try {
       const res = await lancer({
         data: { source, departement, jours, secteurs, autreSecteur, effectifs },
@@ -82,14 +83,37 @@ function RadarPage() {
       setResultat(
         `${res.total} entreprise(s) analysée(s) · ${res.ajoutes} ajoutée(s) · ${res.misAJour} mise(s) à jour${res.googleActif ? "" : " · enrichissement Google inactif"}`,
       );
-      toast.success(`${res.ajoutes} nouveau(x) lead(s)`);
+      toast.success(`${res.ajoutes} nouveau(x) lead(s) — enrichissement en cours`);
       void qc.invalidateQueries({ queryKey: ["leads-liste"] });
+      setChargement(false);
+      await enrichirEnArrierePlan(res.aEnrichir);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur du radar");
-    } finally {
       setChargement(false);
     }
   }
+
+  /** Enrichissement par lots successifs (évite tout timeout sur gros volumes). */
+  async function enrichirEnArrierePlan(total: number) {
+    if (!total) return;
+    let restants = total;
+    setProgression({ faits: 0, total });
+    while (restants > 0) {
+      try {
+        const r = await lot({ data: { taille: 8 } });
+        restants = r.restants;
+        setProgression({ faits: Math.max(0, total - restants), total });
+        void qc.invalidateQueries({ queryKey: ["leads-liste"] });
+        if (r.traites === 0) break;
+      } catch {
+        break;
+      }
+    }
+    setProgression(null);
+    toast.success("Enrichissement terminé");
+    void qc.invalidateQueries({ queryKey: ["leads-liste"] });
+  }
+
 
   async function enregistrerProfil() {
     if (!nomProfil.trim()) {
