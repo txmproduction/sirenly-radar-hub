@@ -359,16 +359,22 @@ export async function enrichirPresence(lead: {
     if (emails[0]) poser(emails[0], "facebook");
   }
 
-  // Étape 6 — recherche web directe
+  // Étape 6 — recherche web directe (aucun faux positif : page d'erreur => étape suivante)
   if (!p.email) {
     for (const variante of [`"${lead.nom}" "${lead.commune}" "@"`, `"${lead.nom}" ${lead.commune} email contact`]) {
       const { html, urls } = await rechercheWeb(variante);
+      // Requête échouée / bloquée / sans résultat exploitable : on n'enregistre rien.
+      const utilisables = urls.filter(
+        (u) => /^https?:\/\//.test(u) && !DOMAINES_BLOQUES.some((d) => domaineDe(u).endsWith(d)),
+      );
+      if (!html || utilisables.length === 0) continue;
+
       const emails = extraireEmails(html);
       if (emails[0]) {
         poser(emails[0], "recherche_web");
         break;
       }
-      const premier = urls.find((u) => /^https?:\/\//.test(u));
+      const premier = utilisables[0];
       if (premier) {
         const page = extraireEmails(await getText(premier));
         if (page[0]) {
@@ -378,6 +384,7 @@ export async function enrichirPresence(lead: {
       }
     }
   }
+
 
   // Étape 7 — déduction + vérification MX (pas de SMTP sortant sur l'infra edge)
   if (!p.email && !domaine && p.fiches_annuaires.length === 0) domaine = "";
