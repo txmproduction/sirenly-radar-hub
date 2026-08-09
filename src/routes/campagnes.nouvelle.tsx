@@ -47,7 +47,8 @@ function NouvelleCampagne() {
   const [apercus, setApercus] = useState<Array<{ nom: string; sujet: string; corps: string }>>([]);
   const [chargement, setChargement] = useState(false);
   const [profil, setProfil] = useState("");
-  const [contact, setContact] = useState("tous");
+  // Par défaut, on ne cible que les leads disposant d'un email.
+  const [contact, setContact] = useState("email");
 
   const { data } = useQuery({
     queryKey: ["campagne-cible"],
