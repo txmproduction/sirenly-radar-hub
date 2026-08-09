@@ -61,6 +61,19 @@ export const DOMAINES_BLOQUES = [
   "cloudflare.com",
   "godaddy.com",
   "ovh.net",
+  "ovh.com",
+  "gandi.net",
+  "amen.fr",
+  "ionos.fr",
+  "ionos.com",
+  "1and1.fr",
+  "1and1.com",
+  "online.net",
+  "scaleway.com",
+  "namecheap.com",
+  "key-systems.net",
+  "netim.com",
+  "netim.fr",
   "sitew.com",
   "jimdo.com",
   "weebly.com",
@@ -229,19 +242,23 @@ function pageCorrespond(html: string, tokens: string[], commune: string): boolea
 
 /**
  * Le site officiel du lead peut légitimement ne pas mentionner la commune
- * (site vitrine minimaliste) : on exige le nom dans le domaine, OU nom +
- * commune dans le contenu de la page d'accueil.
+ * (site vitrine minimaliste). Mais dans tous les cas, on vérifie la RACINE
+ * du domaine (jamais l'URL profonde éventuellement fournie par Google, qui
+ * peut très bien être une page disparue depuis) : si la racine ne répond
+ * pas, le site est rejeté — impossible de garantir qu'il est en ligne.
  */
 async function siteAppartientAuLead(
   site: string,
   tokens: string[],
   commune: string,
-): Promise<boolean> {
+): Promise<{ ok: boolean; racine: string }> {
   const dom = domaineDe(site);
-  if (!dom) return false;
-  if (contientNom(dom.replace(/[.-]/g, " "), tokens)) return true;
-  const html = await getText(site.startsWith("http") ? site : `https://${site}`);
-  return pageCorrespond(html, tokens, commune);
+  if (!dom) return { ok: false, racine: "" };
+  const racine = `https://${dom}/`;
+  const html = await getText(racine);
+  if (!html) return { ok: false, racine }; // racine injoignable : on ne peut rien garantir
+  if (contientNom(dom.replace(/[.-]/g, " "), tokens)) return { ok: true, racine };
+  return { ok: pageCorrespond(html, tokens, commune), racine };
 }
 
 /* ---------------------------- Étape 1 : site web ---------------------------- */
@@ -440,10 +457,14 @@ export async function enrichirPresence(lead: {
   // Places) : s'il n'appartient manifestement pas au lead, on le VIDE, ce qui
   // neutralise aussi les étapes 1, 2 et 7 qui en dépendent.
   if (p.site_web) {
-    const ok = await siteAppartientAuLead(p.site_web, tokens, lead.commune);
+    const { ok, racine } = await siteAppartientAuLead(p.site_web, tokens, lead.commune);
     if (!ok) {
       p.site_web = "";
       p.tags.push("site_web_rejete");
+    } else {
+      // On stocke la racine vérifiée (joignable), pas l'URL profonde d'origine
+      // qui peut très bien avoir disparu (cas vécu : lien Google -> 404).
+      p.site_web = racine;
     }
   }
 

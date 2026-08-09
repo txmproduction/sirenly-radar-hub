@@ -146,14 +146,69 @@ function normaliser(s: string): string {
     .trim();
 }
 
-/** Vrai si l'adresse Google correspond bien à la commune/code postal du lead. */
+/** Mots de voirie/résidence : trop génériques pour identifier une adresse précise. */
+const MOTS_VOIE = new Set([
+  "rue",
+  "avenue",
+  "chemin",
+  "route",
+  "impasse",
+  "allee",
+  "boulevard",
+  "place",
+  "quai",
+  "cours",
+  "res",
+  "residence",
+  "lot",
+  "lotissement",
+  "zi",
+  "za",
+  "zac",
+  "imp",
+  "bd",
+  "av",
+  "chem",
+  "voie",
+  "square",
+  "villa",
+  "passage",
+  "cite",
+  "hameau",
+  "les",
+  "le",
+  "la",
+  "du",
+  "de",
+  "des",
+  "aux",
+]);
+
+/** Tokens significatifs d'une adresse (nom de rue), hors mots de voirie génériques. */
+function tokensAdresse(adresse: string): string[] {
+  return normaliser(adresse)
+    .split(" ")
+    .filter((t) => t.length >= 3 && !MOTS_VOIE.has(t) && !/^\d+$/.test(t));
+}
+
+/**
+ * Vrai si l'adresse Google correspond bien à celle du lead.
+ * La commune/CP seuls ne suffisent PAS : deux établissements différents
+ * peuvent être dans la même ville (cas vécu : un entrepreneur individuel
+ * confondu avec la marque SIMOND, toutes deux à Chamonix-Mont-Blanc).
+ * On exige donc EN PLUS un recoupement sur le nom de rue quand le lead a
+ * une adresse exploitable.
+ */
 function adresseCorrespond(formattedAddress: string, lead: BodaccLead): boolean {
   const addr = normaliser(formattedAddress);
   const commune = normaliser(lead.commune);
   const cp = (lead.code_postal ?? "").trim();
-  if (commune && addr.includes(commune)) return true;
-  if (cp && addr.includes(cp)) return true;
-  return false;
+  const communeOk = Boolean(commune && addr.includes(commune)) || Boolean(cp && addr.includes(cp));
+  if (!communeOk) return false;
+
+  const tokensRue = tokensAdresse(lead.adresse ?? "");
+  if (tokensRue.length === 0) return true; // pas d'adresse précise en base : commune seule fait foi
+  return tokensRue.some((t) => addr.includes(t));
 }
 
 export async function enrichWithGoogle(
@@ -210,7 +265,15 @@ export async function enrichWithGoogle(
         const detailAddr = dJson.result?.formatted_address ?? "";
         if (detailAddr && !adresseCorrespond(detailAddr, lead)) return empty;
         telephone = dJson.result?.formatted_phone_number ?? "";
-        site_web = dJson.result?.website ?? "";
+        // On garde la racine du domaine, pas l'URL profonde que Google peut
+        // renvoyer (ex : une page "histoire de l'entreprise" qui a disparu
+        // depuis) — la racine a beaucoup plus de chances d'être toujours en ligne.
+        const websiteBrut = dJson.result?.website ?? "";
+        try {
+          site_web = websiteBrut ? new URL(websiteBrut).origin + "/" : "";
+        } catch {
+          site_web = websiteBrut;
+        }
       }
     }
 
