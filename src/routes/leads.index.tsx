@@ -37,6 +37,7 @@ function LeadsPage() {
   const [campagne, setCampagne] = useState("toutes");
   const [google, setGoogle] = useState("tous");
   const [commune, setCommune] = useState("toutes");
+  const [contact, setContact] = useState("tous");
 
   const { data } = useQuery({
     queryKey: ["leads-liste"],
@@ -60,7 +61,11 @@ function LeadsPage() {
     const okGoogle =
       google === "tous" || (google === "oui" ? Boolean(l.note_google) : !l.note_google);
     const okCommune = commune === "toutes" || l.commune === commune;
-    return okQ && okStatut && okCamp && okGoogle && okCommune;
+    const tags = Array.isArray(l.tags) ? (l.tags as string[]) : [];
+    const okContact =
+      contact === "tous" ||
+      (contact === "email" ? Boolean(l.email) : tags.includes("contactable_via_reseaux"));
+    return okQ && okStatut && okCamp && okGoogle && okCommune && okContact;
   });
 
   const nomCampagne = (id: string | null) =>
@@ -109,6 +114,15 @@ function LeadsPage() {
           <option value="tous">Fiche Google : tous</option>
           <option value="oui">Avec fiche Google</option>
           <option value="non">Sans fiche Google</option>
+        </select>
+        <select
+          value={contact}
+          onChange={(e) => setContact(e.target.value)}
+          className="h-9 rounded-lg border border-border bg-card px-3 text-sm"
+        >
+          <option value="tous">Contactabilité : tous</option>
+          <option value="email">Avec email</option>
+          <option value="reseaux">Contactable via réseaux</option>
         </select>
         <select
           value={commune}
