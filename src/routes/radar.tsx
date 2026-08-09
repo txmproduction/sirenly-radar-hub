@@ -32,6 +32,24 @@ export const Route = createFileRoute("/radar")({
 function RadarPage() {
   const qc = useQueryClient();
   const lancer = useServerFn(generateLeads);
+  const reparer = useServerFn(reparerEmailsInvalides);
+  const [reparation, setReparation] = useState(false);
+
+  async function lancerReparation() {
+    setReparation(true);
+    try {
+      const res = await reparer({});
+      toast.success(
+        `${res.suspects} email(s) invalide(s) · ${res.corriges} corrigé(s) · ${res.reenrichis} nouvel(le)s adresse(s)`,
+      );
+      void qc.invalidateQueries({ queryKey: ["leads-liste"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur de réparation");
+    } finally {
+      setReparation(false);
+    }
+  }
+
 
   const [source, setSource] = useState<"bodacc" | "etablies">("bodacc");
   const [departement, setDepartement] = useState("74");
