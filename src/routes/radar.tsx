@@ -280,7 +280,34 @@ function RadarPage() {
             </button>
             {resultat && <p className="text-sm text-muted-foreground">{resultat}</p>}
           </div>
+
+          {progression && (
+            <div className="rounded-xl border border-border bg-muted/40 p-4">
+              <div className="flex items-center justify-between text-sm font-medium">
+                <span className="flex items-center gap-2">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Enrichissement en arrière-plan
+                </span>
+                <span>
+                  {progression.faits}/{progression.total} leads enrichis
+                </span>
+              </div>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{
+                    width: `${Math.round((progression.faits / Math.max(1, progression.total)) * 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Les leads sont déjà visibles dans « Tous les leads » ; leurs coordonnées se
+                complètent au fur et à mesure.
+              </p>
+            </div>
+          )}
         </section>
+
 
         <aside className="space-y-6">
           <section className="panel p-6">
