@@ -15,6 +15,7 @@ import { Route as RadarRouteImport } from './routes/radar'
 import { Route as ReponsesRouteImport } from './routes/reponses'
 import { Route as CampagnesIndexRouteImport } from './routes/campagnes.index'
 import { Route as CampagnesIdRouteImport } from './routes/campagnes.$id'
+import { Route as CampagnesNouvelleRouteImport } from './routes/campagnes.nouvelle'
 import { Route as LeadsIndexRouteImport } from './routes/leads.index'
 import { Route as LeadsIdRouteImport } from './routes/leads.$id'
 import { Route as ApiPublicReceiveEmailWebhookRouteImport } from './routes/api/public/receive-email-webhook'
@@ -49,6 +50,11 @@ const CampagnesIdRoute = CampagnesIdRouteImport.update({
   path: '/campagnes/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CampagnesNouvelleRoute = CampagnesNouvelleRouteImport.update({
+  id: '/campagnes/nouvelle',
+  path: '/campagnes/nouvelle',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LeadsIndexRoute = LeadsIndexRouteImport.update({
   id: '/leads/',
   path: '/leads/',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/radar': typeof RadarRoute
   '/reponses': typeof ReponsesRoute
   '/campagnes/$id': typeof CampagnesIdRoute
+  '/campagnes/nouvelle': typeof CampagnesNouvelleRoute
   '/leads/$id': typeof LeadsIdRoute
   '/campagnes/': typeof CampagnesIndexRoute
   '/leads/': typeof LeadsIndexRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/radar': typeof RadarRoute
   '/reponses': typeof ReponsesRoute
   '/campagnes/$id': typeof CampagnesIdRoute
+  '/campagnes/nouvelle': typeof CampagnesNouvelleRoute
   '/leads/$id': typeof LeadsIdRoute
   '/campagnes': typeof CampagnesIndexRoute
   '/leads': typeof LeadsIndexRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/radar': typeof RadarRoute
   '/reponses': typeof ReponsesRoute
   '/campagnes/$id': typeof CampagnesIdRoute
+  '/campagnes/nouvelle': typeof CampagnesNouvelleRoute
   '/leads/$id': typeof LeadsIdRoute
   '/campagnes/': typeof CampagnesIndexRoute
   '/leads/': typeof LeadsIndexRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/radar'
     | '/reponses'
     | '/campagnes/$id'
+    | '/campagnes/nouvelle'
     | '/leads/$id'
     | '/campagnes/'
     | '/leads/'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/radar'
     | '/reponses'
     | '/campagnes/$id'
+    | '/campagnes/nouvelle'
     | '/leads/$id'
     | '/campagnes'
     | '/leads'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/radar'
     | '/reponses'
     | '/campagnes/$id'
+    | '/campagnes/nouvelle'
     | '/leads/$id'
     | '/campagnes/'
     | '/leads/'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   RadarRoute: typeof RadarRoute
   ReponsesRoute: typeof ReponsesRoute
   CampagnesIdRoute: typeof CampagnesIdRoute
+  CampagnesNouvelleRoute: typeof CampagnesNouvelleRoute
   LeadsIdRoute: typeof LeadsIdRoute
   CampagnesIndexRoute: typeof CampagnesIndexRoute
   LeadsIndexRoute: typeof LeadsIndexRoute
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CampagnesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/campagnes/nouvelle': {
+      id: '/campagnes/nouvelle'
+      path: '/campagnes/nouvelle'
+      fullPath: '/campagnes/nouvelle'
+      preLoaderRoute: typeof CampagnesNouvelleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/leads/': {
       id: '/leads/'
       path: '/leads'
@@ -222,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   RadarRoute: RadarRoute,
   ReponsesRoute: ReponsesRoute,
   CampagnesIdRoute: CampagnesIdRoute,
+  CampagnesNouvelleRoute: CampagnesNouvelleRoute,
   LeadsIdRoute: LeadsIdRoute,
   CampagnesIndexRoute: CampagnesIndexRoute,
   LeadsIndexRoute: LeadsIndexRoute,
