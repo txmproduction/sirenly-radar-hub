@@ -14,7 +14,136 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      emails_envoyes: {
+        Row: {
+          contenu: string | null
+          date_envoi: string
+          id: string
+          lead_id: string | null
+          statut_envoi: string | null
+          sujet: string | null
+        }
+        Insert: {
+          contenu?: string | null
+          date_envoi?: string
+          id?: string
+          lead_id?: string | null
+          statut_envoi?: string | null
+          sujet?: string | null
+        }
+        Update: {
+          contenu?: string | null
+          date_envoi?: string
+          id?: string
+          lead_id?: string | null
+          statut_envoi?: string | null
+          sujet?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emails_envoyes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          activite: string | null
+          adresse: string | null
+          code_postal: string | null
+          commune: string | null
+          contact: string | null
+          date_maj: string
+          forme_juridique: string | null
+          id: string
+          nb_avis_google: string | null
+          nom: string | null
+          note_google: string | null
+          notes: string | null
+          qualifie_par: string | null
+          rdv_date: string | null
+          rdv_heure: string | null
+          statut: string
+          telephone: string | null
+        }
+        Insert: {
+          activite?: string | null
+          adresse?: string | null
+          code_postal?: string | null
+          commune?: string | null
+          contact?: string | null
+          date_maj?: string
+          forme_juridique?: string | null
+          id: string
+          nb_avis_google?: string | null
+          nom?: string | null
+          note_google?: string | null
+          notes?: string | null
+          qualifie_par?: string | null
+          rdv_date?: string | null
+          rdv_heure?: string | null
+          statut?: string
+          telephone?: string | null
+        }
+        Update: {
+          activite?: string | null
+          adresse?: string | null
+          code_postal?: string | null
+          commune?: string | null
+          contact?: string | null
+          date_maj?: string
+          forme_juridique?: string | null
+          id?: string
+          nb_avis_google?: string | null
+          nom?: string | null
+          note_google?: string | null
+          notes?: string | null
+          qualifie_par?: string | null
+          rdv_date?: string | null
+          rdv_heure?: string | null
+          statut?: string
+          telephone?: string | null
+        }
+        Relationships: []
+      }
+      reponses_formulaire: {
+        Row: {
+          classification: string | null
+          date_reponse: string
+          id: string
+          lead_id: string | null
+          nom_entreprise: string | null
+          reponses: Json | null
+        }
+        Insert: {
+          classification?: string | null
+          date_reponse?: string
+          id?: string
+          lead_id?: string | null
+          nom_entreprise?: string | null
+          reponses?: Json | null
+        }
+        Update: {
+          classification?: string | null
+          date_reponse?: string
+          id?: string
+          lead_id?: string | null
+          nom_entreprise?: string | null
+          reponses?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reponses_formulaire_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
