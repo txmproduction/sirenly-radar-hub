@@ -14,6 +14,7 @@ import { Route as RadarRouteImport } from './routes/radar'
 import { Route as ReponsesRouteImport } from './routes/reponses'
 import { Route as LeadsIndexRouteImport } from './routes/leads.index'
 import { Route as LeadsIdRouteImport } from './routes/leads.$id'
+import { Route as ApiPublicReceiveEmailWebhookRouteImport } from './routes/api/public/receive-email-webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,12 @@ const LeadsIdRoute = LeadsIdRouteImport.update({
   path: '/leads/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicReceiveEmailWebhookRoute =
+  ApiPublicReceiveEmailWebhookRouteImport.update({
+    id: '/api/public/receive-email-webhook',
+    path: '/api/public/receive-email-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +54,7 @@ export interface FileRoutesByFullPath {
   '/reponses': typeof ReponsesRoute
   '/leads/$id': typeof LeadsIdRoute
   '/leads/': typeof LeadsIndexRoute
+  '/api/public/receive-email-webhook': typeof ApiPublicReceiveEmailWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +62,7 @@ export interface FileRoutesByTo {
   '/reponses': typeof ReponsesRoute
   '/leads/$id': typeof LeadsIdRoute
   '/leads': typeof LeadsIndexRoute
+  '/api/public/receive-email-webhook': typeof ApiPublicReceiveEmailWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +71,33 @@ export interface FileRoutesById {
   '/reponses': typeof ReponsesRoute
   '/leads/$id': typeof LeadsIdRoute
   '/leads/': typeof LeadsIndexRoute
+  '/api/public/receive-email-webhook': typeof ApiPublicReceiveEmailWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/radar' | '/reponses' | '/leads/$id' | '/leads/'
+  fullPaths:
+    | '/'
+    | '/radar'
+    | '/reponses'
+    | '/leads/$id'
+    | '/leads/'
+    | '/api/public/receive-email-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/radar' | '/reponses' | '/leads/$id' | '/leads'
-  id: '__root__' | '/' | '/radar' | '/reponses' | '/leads/$id' | '/leads/'
+  to:
+    | '/'
+    | '/radar'
+    | '/reponses'
+    | '/leads/$id'
+    | '/leads'
+    | '/api/public/receive-email-webhook'
+  id:
+    | '__root__'
+    | '/'
+    | '/radar'
+    | '/reponses'
+    | '/leads/$id'
+    | '/leads/'
+    | '/api/public/receive-email-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +106,7 @@ export interface RootRouteChildren {
   ReponsesRoute: typeof ReponsesRoute
   LeadsIdRoute: typeof LeadsIdRoute
   LeadsIndexRoute: typeof LeadsIndexRoute
+  ApiPublicReceiveEmailWebhookRoute: typeof ApiPublicReceiveEmailWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +146,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeadsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/receive-email-webhook': {
+      id: '/api/public/receive-email-webhook'
+      path: '/api/public/receive-email-webhook'
+      fullPath: '/api/public/receive-email-webhook'
+      preLoaderRoute: typeof ApiPublicReceiveEmailWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +162,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReponsesRoute: ReponsesRoute,
   LeadsIdRoute: LeadsIdRoute,
   LeadsIndexRoute: LeadsIndexRoute,
+  ApiPublicReceiveEmailWebhookRoute: ApiPublicReceiveEmailWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
