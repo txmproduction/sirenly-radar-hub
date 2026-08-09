@@ -2,13 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { EmptyState, PageHeader, Pill } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { CLASSIFICATIONS, classificationMeta, formatDate, useRealtime } from "@/lib/sirenly";
 
@@ -18,13 +12,12 @@ export const Route = createFileRoute("/reponses")({
       { title: "Réponses formulaire — Sirenly" },
       {
         name: "description",
-        content:
-          "Toutes les réponses au formulaire de prospection, classées chaud, tiède ou froid.",
+        content: "Toutes les réponses au formulaire, classées chaud, tiède ou froid.",
       },
       { property: "og:title", content: "Réponses formulaire — Sirenly" },
       {
         property: "og:description",
-        content: "Réponses au formulaire classées chaud, tiède ou froid.",
+        content: "Priorisez vos prospects selon la température de leur réponse.",
       },
     ],
   }),
@@ -32,100 +25,86 @@ export const Route = createFileRoute("/reponses")({
 });
 
 function ReponsesPage() {
-  useRealtime("reponses_formulaire", ["reponses"]);
-  const [filtre, setFiltre] = useState("tous");
+  useRealtime("reponses_formulaire", ["reponses-formulaire"]);
+  const [filtre, setFiltre] = useState("toutes");
 
-  const { data: reponses = [], isLoading } = useQuery({
-    queryKey: ["reponses"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("reponses_formulaire")
-        .select("*")
-        .order("date_reponse", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
+  const { data } = useQuery({
+    queryKey: ["reponses-formulaire"],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("reponses_formulaire")
+          .select("*")
+          .order("date_reponse", { ascending: false })
+      ).data ?? [],
   });
 
-  const visibles = reponses.filter((r) => filtre === "tous" || r.classification === filtre);
+  const reponses = (data ?? []).filter(
+    (r) => filtre === "toutes" || r.classification === filtre,
+  );
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {visibles.length} réponse(s) · classification automatique
-          </p>
-        </div>
-
-        <Select value={filtre} onValueChange={setFiltre}>
-          <SelectTrigger className="w-52">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tous">Toutes</SelectItem>
+      <PageHeader
+        titre="Réponses formulaire"
+        sousTitre={`${reponses.length} réponse(s)`}
+        actions={
+          <select
+            value={filtre}
+            onChange={(e) => setFiltre(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-card px-3 text-sm"
+          >
+            <option value="toutes">Toutes</option>
             {CLASSIFICATIONS.map((c) => (
-              <SelectItem key={c.value} value={c.value}>
+              <option key={c.value} value={c.value}>
                 {c.label}
-              </SelectItem>
+              </option>
             ))}
-          </SelectContent>
-        </Select>
-      </header>
+          </select>
+        }
+      />
 
-      {isLoading && <p className="text-sm text-muted-foreground">Chargement…</p>}
-      {!isLoading && visibles.length === 0 && (
-        <p className="panel p-6 text-sm text-muted-foreground">Aucune réponse enregistrée.</p>
-      )}
+      {reponses.length === 0 ? (
+        <EmptyState titre="Aucune réponse" texte="Les retours du formulaire s'afficheront ici." />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {reponses.map((r) => {
+            const meta = classificationMeta(r.classification);
+            return (
+              <article key={r.id} className="panel p-5">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                  <div className="min-w-0">
+                    <h2 className="truncate font-display text-base font-bold">
+                      {r.nom_entreprise ?? "Entreprise inconnue"}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">{formatDate(r.date_reponse)}</p>
+                  </div>
+                  <Pill label={meta.label} classes={meta.classes} />
+                </div>
 
-      <div className="space-y-3">
-        {visibles.map((reponse) => {
-          const meta = classificationMeta(reponse.classification);
-          const entries = Object.entries((reponse.reponses ?? {}) as Record<string, unknown>);
-          return (
-            <article key={reponse.id} className="panel p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-base font-bold">
-                    {reponse.nom_entreprise || "Entreprise inconnue"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDate(reponse.date_reponse)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.classes}`}
-                  >
-                    {meta.label}
-                  </span>
-                  {reponse.lead_id && (
-                    <Link
-                      to="/leads/$id"
-                      params={{ id: reponse.lead_id }}
-                      className="text-xs font-semibold text-primary hover:underline"
-                    >
-                      Voir la fiche →
-                    </Link>
-                  )}
-                </div>
-              </div>
-              {entries.length > 0 && (
-                <dl className="mt-4 space-y-1.5 border-t border-border pt-3">
-                  {entries.map(([key, value]) => (
-                    <div key={key} className="grid gap-1 text-xs sm:grid-cols-[220px_1fr]">
-                      <dt className="font-medium text-muted-foreground">{key}</dt>
-                      <dd className="break-words">
-                        {typeof value === "object" ? JSON.stringify(value) : String(value)}
-                      </dd>
+                <div className="mt-4 space-y-2">
+                  {Object.entries((r.reponses ?? {}) as Record<string, unknown>).map(([k, v]) => (
+                    <div key={k} className="rounded-lg border border-border px-3 py-2">
+                      <p className="th-label">{k}</p>
+                      <p className="text-sm">{String(v)}</p>
                     </div>
                   ))}
-                </dl>
-              )}
-            </article>
-          );
-        })}
-      </div>
+                </div>
+
+                {r.lead_id && (
+                  <Link
+                    to="/leads/$id"
+                    params={{ id: r.lead_id }}
+                    className="mt-4 inline-flex rounded-lg border border-input bg-card px-3 py-1.5 text-sm font-medium hover:bg-muted"
+                  >
+                    Voir la fiche lead
+                  </Link>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

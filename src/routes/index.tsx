@@ -1,18 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BarChart3 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Send, Users, UserCheck, Mail } from "lucide-react";
 
+import { EmptyState, PageHeader, Pill, StatCard } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDate, statutClasses, statutLabel, useRealtime } from "@/lib/sirenly";
+import {
+  classificationEmailMeta,
+  extrait,
+  formatDate,
+  statutMeta,
+  useRealtime,
+} from "@/lib/sirenly";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -20,291 +18,278 @@ export const Route = createFileRoute("/")({
       { title: "Tableau de bord — Sirenly" },
       {
         name: "description",
-        content: "Suivi des leads qualifiés, emails envoyés et taux de réponse de la prospection.",
+        content:
+          "Vue d'ensemble de votre prospection B2B : campagnes, leads, emails envoyés et réponses.",
       },
       { property: "og:title", content: "Tableau de bord — Sirenly" },
       {
         property: "og:description",
-        content: "Suivi des leads qualifiés, emails envoyés et taux de réponse.",
+        content: "Pilotez vos campagnes de prospection B2B et suivez vos prospects.",
       },
     ],
   }),
   component: Dashboard,
 });
 
-function useDashboardData() {
-  return useQuery({
-    queryKey: ["dashboard"],
+const FUNNEL = [
+  { id: "prospects", label: "Prospects" },
+  { id: "contactes", label: "Contactés" },
+  { id: "repondus", label: "Répondus" },
+  { id: "interesses", label: "Intéressés" },
+  { id: "rdv", label: "RDV pris" },
+];
+
+function Dashboard() {
+  useRealtime("leads", ["dash"]);
+  useRealtime("emails_envoyes", ["dash"]);
+  useRealtime("reponses_emails", ["dash"]);
+
+  const { data } = useQuery({
+    queryKey: ["dash"],
     queryFn: async () => {
       const debutMois = new Date();
       debutMois.setDate(1);
       debutMois.setHours(0, 0, 0, 0);
 
-      const [leadsRes, emailsRes, reponsesRes] = await Promise.all([
+      const [leads, campagnes, emails, reponses] = await Promise.all([
+        supabase.from("leads").select("id, statut, nom, commune, activite, campagne_id"),
+        supabase.from("campagnes").select("id, nom, statut"),
+        supabase.from("emails_envoyes").select("id, campagne_id, date_envoi"),
         supabase
-          .from("leads")
-          .select("id, nom, commune, activite, statut, date_maj")
-          .order("date_maj", { ascending: false })
-          .limit(500),
-        supabase.from("emails_envoyes").select("id", { count: "exact", head: true }),
-        supabase.from("reponses_formulaire").select("id", { count: "exact", head: true }),
+          .from("reponses_emails")
+          .select("id, campagne_id, contenu, email_expediteur, classification, date_reception, lead_id")
+          .order("date_reception", { ascending: false }),
       ]);
 
-      if (leadsRes.error) throw leadsRes.error;
+      const l = leads.data ?? [];
+      const e = emails.data ?? [];
+      const r = reponses.data ?? [];
+      const c = campagnes.data ?? [];
 
-      const leads = leadsRes.data ?? [];
-      const qualifiesMois = leads.filter(
-        (l) =>
-          l.statut !== "non_qualifie" && l.date_maj && new Date(l.date_maj) >= debutMois,
-      ).length;
-
-      const emails = emailsRes.count ?? 0;
-      const reponses = reponsesRes.count ?? 0;
-
-      const jours = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
-        d.setDate(d.getDate() - (6 - i));
-        return d;
-      });
-
-      const chart = jours.map((jour) => {
-        const suivant = new Date(jour);
-        suivant.setDate(suivant.getDate() + 1);
+      const parCampagne = c.map((camp) => {
+        const envoyes = e.filter((x) => x.campagne_id === camp.id).length;
+        const rep = r.filter((x) => x.campagne_id === camp.id).length;
         return {
-          jour: jour.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit" }),
-          leads: leads.filter((l) => {
-            if (!l.date_maj) return false;
-            const d = new Date(l.date_maj);
-            return d >= jour && d < suivant;
-          }).length,
+          ...camp,
+          envoyes,
+          taux: envoyes ? Math.round((rep / envoyes) * 100) : 0,
         };
       });
 
+      const qualifies = l.filter((x) =>
+        ["contacte", "a_repondu", "info_request", "meeting", "rdv_pris", "client"].includes(
+          x.statut ?? "",
+        ),
+      ).length;
+
+      const funnel = {
+        prospects: l.length,
+        contactes: new Set(e.map((x) => x.id)).size,
+        repondus: r.length,
+        interesses: r.filter((x) => x.classification === "interesse").length,
+        rdv: l.filter((x) => ["meeting", "rdv_pris"].includes(x.statut ?? "")).length,
+      } as Record<string, number>;
+
       return {
-        qualifiesMois,
-        emails,
-        reponses,
-        taux: emails > 0 ? Math.round((reponses / emails) * 100) : 0,
-        chart,
-        derniers: leads.filter((l) => l.statut !== "non_qualifie").slice(0, 8),
+        totalCampagnes: c.length,
+        totalLeads: l.length,
+        qualifies,
+        emailsMois: e.filter((x) => new Date(x.date_envoi) >= debutMois).length,
+        totalEmails: e.length,
+        parCampagne,
+        funnel,
+        dernieresReponses: r.slice(0, 5),
       };
     },
   });
-}
 
-function StatCard({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  tone: "primary" | "accent" | "success";
-}) {
-  const bars = {
-    primary: "bg-primary",
-    accent: "bg-accent",
-    success: "bg-success",
-  } as const;
-  return (
-    <div className="group rounded-3xl border border-border bg-card p-6 transition-colors hover:border-primary/40">
-      <p className="mb-2 text-sm font-medium text-muted-foreground">{label}</p>
-      <div className="flex items-end justify-between gap-3">
-        <p className="font-display text-4xl font-bold">{value}</p>
-        <span className="shrink-0 rounded-lg bg-secondary px-2 py-1 text-xs text-muted-foreground">
-          {hint}
-        </span>
-      </div>
-      <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-secondary">
-        <div className={`h-full w-0 transition-all duration-1000 group-hover:w-full ${bars[tone]}`} />
-      </div>
-    </div>
-  );
-}
-
-function Dashboard() {
-  useRealtime("leads", ["dashboard"]);
-  useRealtime("emails_envoyes", ["dashboard"]);
-  useRealtime("reponses_formulaire", ["dashboard"]);
-  const { data, isLoading } = useDashboardData();
-
-  const chart = data?.chart ?? [];
-  const chartVide = chart.every((c) => c.leads === 0);
-  const derniers = data?.derniers ?? [];
+  const d = data;
+  const maxFunnel = Math.max(1, d?.funnel["prospects"] ?? 1);
+  const totalEmails = d?.totalEmails ?? 0;
+  const maxCampagne = Math.max(1, ...(d?.parCampagne.map((c) => c.envoyes) ?? [1]));
 
   return (
     <div className="space-y-8">
-      <div className="grid gap-6 md:grid-cols-3">
-        <StatCard
-          label="Leads qualifiés ce mois"
-          value={isLoading ? "—" : String(data?.qualifiesMois ?? 0)}
-          hint="Ce mois-ci"
-          tone="primary"
-        />
-        <StatCard
-          label="Emails envoyés"
-          value={isLoading ? "—" : String(data?.emails ?? 0)}
-          hint="Total"
-          tone="accent"
-        />
-        <StatCard
-          label="Taux de réponse"
-          value={isLoading ? "—" : `${data?.taux ?? 0} %`}
-          hint={`${data?.reponses ?? 0} réponse(s)`}
-          tone="success"
-        />
+      <PageHeader
+        titre="Tableau de bord"
+        sousTitre="Vue d'ensemble de votre activité de prospection"
+        actions={
+          <Link
+            to="/campagnes/nouvelle"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            Nouvelle campagne
+          </Link>
+        }
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard icon={Send} valeur={d?.totalCampagnes ?? 0} libelle="Total campagnes" />
+        <StatCard icon={Users} valeur={d?.totalLeads ?? 0} libelle="Total leads" />
+        <StatCard icon={UserCheck} valeur={d?.qualifies ?? 0} libelle="Leads qualifiés" />
+        <StatCard icon={Mail} valeur={d?.emailsMois ?? 0} libelle="Emails envoyés ce mois" />
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        <section className="flex min-h-[400px] flex-col rounded-3xl border border-border bg-card p-8 lg:col-span-2">
-          <div className="mb-8 flex items-center justify-between gap-4">
-            <h2 className="font-display text-lg font-semibold">Activité de la semaine</h2>
-            <span className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-1 text-xs text-muted-foreground">
-              <span className="size-2 rounded-full bg-primary" />7 derniers jours
-            </span>
-          </div>
+      <section className="panel p-6">
+        <h2 className="font-display text-lg font-bold">Email Analytics</h2>
+        <p className="text-sm text-muted-foreground">Volume envoyé et performance par campagne</p>
 
-          <div className="relative flex-1">
-            {chartVide ? (
-              <div className="absolute inset-0 overflow-hidden rounded-2xl border-b border-l border-border">
-                <div className="dot-grid absolute inset-0 opacity-10" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-                  <div className="mb-4 grid size-16 place-items-center rounded-2xl bg-secondary">
-                    <BarChart3 className="size-8 text-muted-foreground" />
-                  </div>
-                  <p className="font-medium">Aucune donnée à afficher</p>
-                  <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                    Lancez votre première recherche BODACC pour voir vos statistiques apparaître
-                    ici.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chart}>
-                  <defs>
-                    <linearGradient id="leadsFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.6} />
-                      <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="var(--color-border)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="jour"
-                    stroke="var(--color-muted-foreground)"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    stroke="var(--color-muted-foreground)"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    width={30}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--color-popover)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 12,
-                      color: "var(--color-foreground)",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="leads"
-                    stroke="var(--color-primary)"
-                    strokeWidth={2}
-                    fill="url(#leadsFill)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+        <div className="mt-6 grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <Donut total={totalEmails} parts={d?.parCampagne ?? []} />
+
+          <div className="space-y-3">
+            {(d?.parCampagne ?? []).length === 0 && (
+              <EmptyState
+                titre="Aucune campagne"
+                texte="Créez votre première campagne pour voir les taux de réponse."
+              />
             )}
+            {(d?.parCampagne ?? []).map((c) => (
+              <div key={c.id} className="flex items-center gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <Link
+                      to="/campagnes/$id"
+                      params={{ id: c.id }}
+                      className="truncate text-sm font-medium hover:text-primary"
+                    >
+                      {c.nom}
+                    </Link>
+                    <Pill
+                      label={`${c.taux}% de réponse`}
+                      classes="bg-success text-success-foreground border-success-foreground/15"
+                    />
+                  </div>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-brand"
+                      style={{ width: `${(c.envoyes / maxCampagne) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
+        </div>
+      </section>
 
-          {chartVide && (
-            <div className="flex justify-between pt-4">
-              {chart.map((c) => (
-                <span key={c.jour} className="text-[10px] text-muted-foreground">
-                  {c.jour}
-                </span>
-              ))}
-            </div>
-          )}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="panel p-6">
+          <h2 className="font-display text-lg font-bold">Suivi des prospects</h2>
+          <p className="text-sm text-muted-foreground">Du prospect au rendez-vous</p>
+          <div className="mt-6 space-y-4">
+            {FUNNEL.map((f, i) => {
+              const v = d?.funnel[f.id] ?? 0;
+              return (
+                <div key={f.id}>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{f.label}</span>
+                    <span className="font-semibold">{v}</span>
+                  </div>
+                  <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-brand"
+                      style={{
+                        width: `${Math.max(2, (v / maxFunnel) * 100)}%`,
+                        opacity: 1 - i * 0.12,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
 
-        <section className="flex flex-col rounded-3xl border border-border bg-card p-8">
-          <h2 className="mb-6 font-display text-lg font-semibold">Dernières opportunités</h2>
-
-          {derniers.length === 0 ? (
-            <div className="flex flex-1 flex-col gap-4">
-              <div className="flex items-center gap-4 rounded-2xl border border-dashed border-border p-4 opacity-40">
-                <div className="size-10 shrink-0 rounded-full bg-secondary" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="h-3 w-2/3 rounded bg-secondary" />
-                  <div className="h-2 w-1/2 rounded bg-secondary" />
-                </div>
-              </div>
-              <div className="flex items-center gap-4 rounded-2xl border border-dashed border-border p-4 opacity-20">
-                <div className="size-10 shrink-0 rounded-full bg-secondary" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="h-3 w-1/3 rounded bg-secondary" />
-                  <div className="h-2 w-2/3 rounded bg-secondary" />
-                </div>
-              </div>
-              <div className="mt-auto text-center">
-                <p className="mb-6 text-sm text-muted-foreground">
-                  Votre pipeline est actuellement vide.
-                </p>
+        <section className="panel p-6">
+          <h2 className="font-display text-lg font-bold">Dernières réponses</h2>
+          <p className="text-sm text-muted-foreground">Les 5 messages les plus récents</p>
+          <div className="mt-5 space-y-3">
+            {(d?.dernieresReponses ?? []).length === 0 && (
+              <EmptyState
+                titre="Aucune réponse pour l'instant"
+                texte="Les réponses reçues à vos campagnes apparaîtront ici."
+              />
+            )}
+            {(d?.dernieresReponses ?? []).map((r) => {
+              const meta = classificationEmailMeta(r.classification);
+              return (
                 <Link
-                  to="/leads"
-                  className="block w-full rounded-xl border border-primary py-3 text-center font-medium text-primary transition-all hover:bg-primary hover:text-primary-foreground"
+                  key={r.id}
+                  to="/inbox"
+                  className="block rounded-xl border border-border p-3 transition-colors hover:bg-muted/60"
                 >
-                  Qualifier des leads
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {derniers.map((lead) => (
-                <Link
-                  key={lead.id}
-                  to="/leads/$id"
-                  params={{ id: lead.id }}
-                  className="block rounded-2xl border border-border bg-background/40 p-4 transition-colors hover:border-primary/40"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{lead.nom}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {[lead.commune, lead.activite].filter(Boolean).join(" · ") || "—"}
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statutClasses(lead.statut)}`}
-                    >
-                      {statutLabel(lead.statut)}
-                    </span>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate text-sm font-medium">{r.email_expediteur}</span>
+                    <Pill label={meta.label} classes={meta.classes} />
                   </div>
-                  <p className="mt-2 text-[11px] text-muted-foreground">
-                    {formatDate(lead.date_maj)}
+                  <p className="mt-1 text-xs text-muted-foreground">{extrait(r.contenu, 90)}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {formatDate(r.date_reception)}
                   </p>
                 </Link>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </section>
       </div>
+
+      <section className="panel p-6">
+        <h2 className="font-display text-lg font-bold">Statuts des leads</h2>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {["nouveau", "contacte", "a_repondu", "info_request", "meeting", "client", "perdu"].map(
+            (s) => {
+              const meta = statutMeta(s);
+              return <Pill key={s} label={meta.label} classes={meta.classes} />;
+            },
+          )}
+        </div>
+      </section>
     </div>
   );
 }
 
+function Donut({
+  total,
+  parts,
+}: {
+  total: number;
+  parts: Array<{ id: string; nom: string; envoyes: number }>;
+}) {
+  const radius = 70;
+  const stroke = 22;
+  const circ = 2 * Math.PI * radius;
+  const somme = parts.reduce((acc, p) => acc + p.envoyes, 0) || 1;
+  let offset = 0;
+  const colors = ["#e08a2b", "#f0b26b", "#f7d5ab", "#a75f12", "#fbe4c7"];
+
+  return (
+    <div className="relative mx-auto size-[200px]">
+      <svg viewBox="0 0 200 200" className="size-full -rotate-90">
+        <circle cx="100" cy="100" r={radius} fill="none" stroke="var(--muted)" strokeWidth={stroke} />
+        {parts.map((p, i) => {
+          const len = (p.envoyes / somme) * circ;
+          const el = (
+            <circle
+              key={p.id}
+              cx="100"
+              cy="100"
+              r={radius}
+              fill="none"
+              stroke={colors[i % colors.length]}
+              strokeWidth={stroke}
+              strokeDasharray={`${len} ${circ - len}`}
+              strokeDashoffset={-offset}
+            />
+          );
+          offset += len;
+          return el;
+        })}
+      </svg>
+      <div className="absolute inset-0 grid place-content-center text-center">
+        <p className="font-display text-3xl font-bold">{total}</p>
+        <p className="text-xs text-muted-foreground">emails envoyés</p>
+      </div>
+    </div>
+  );
+}

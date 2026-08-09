@@ -3,37 +3,72 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
 
-export const STATUTS = [
-  { value: "non_qualifie", label: "Non qualifié" },
-  { value: "pas_de_reponse", label: "Pas de réponse" },
-  { value: "pas_interesse", label: "Pas intéressé" },
-  { value: "pas_decisionnaire", label: "Pas décisionnaire" },
-  { value: "rdv_pris", label: "RDV pris" },
-] as const;
+/* ---------------------------------- Statuts ---------------------------------- */
+
+export type StatutMeta = { value: string; label: string; classes: string };
+
+const PILL_POS = "bg-success text-success-foreground border-success-foreground/15";
+const PILL_WAIT = "bg-warm text-warm-foreground border-warm-foreground/15";
+const PILL_MEET = "bg-violet text-violet-foreground border-violet-foreground/15";
+const PILL_NEG = "bg-red-50 text-red-700 border-red-200";
+const PILL_NEUTRAL = "bg-muted text-muted-foreground border-border";
+const PILL_INFO = "bg-cold text-cold-foreground border-cold-foreground/15";
+
+export const STATUTS: StatutMeta[] = [
+  { value: "nouveau", label: "Nouveau", classes: PILL_NEUTRAL },
+  { value: "non_qualifie", label: "Non qualifié", classes: PILL_NEUTRAL },
+  { value: "contacte", label: "Contacté", classes: PILL_WAIT },
+  { value: "a_repondu", label: "A répondu", classes: PILL_INFO },
+  { value: "info_request", label: "Demande d'info", classes: PILL_INFO },
+  { value: "meeting", label: "Meeting", classes: PILL_MEET },
+  { value: "rdv_pris", label: "RDV pris", classes: PILL_MEET },
+  { value: "client", label: "Client", classes: PILL_POS },
+  { value: "pas_de_reponse", label: "Pas de réponse", classes: PILL_NEUTRAL },
+  { value: "pas_decisionnaire", label: "Pas décisionnaire", classes: PILL_WAIT },
+  { value: "pas_interesse", label: "Pas intéressé", classes: PILL_NEG },
+  { value: "perdu", label: "Perdu", classes: PILL_NEG },
+];
+
+export function statutMeta(value: string | null | undefined): StatutMeta {
+  return (
+    STATUTS.find((s) => s.value === value) ?? {
+      value: value ?? "",
+      label: value ?? "Nouveau",
+      classes: PILL_NEUTRAL,
+    }
+  );
+}
 
 export function statutLabel(value: string | null): string {
-  return STATUTS.find((s) => s.value === value)?.label ?? "Non qualifié";
+  return statutMeta(value).label;
 }
 
 export function statutClasses(value: string | null): string {
-  switch (value) {
-    case "rdv_pris":
-      return "bg-success/15 text-success border-success/30";
-    case "pas_interesse":
-      return "bg-destructive/15 text-destructive border-destructive/30";
-    case "pas_de_reponse":
-      return "bg-muted text-muted-foreground border-border";
-    case "pas_decisionnaire":
-      return "bg-accent/15 text-accent border-accent/30";
-    default:
-      return "bg-primary/15 text-primary border-primary/30";
-  }
+  return statutMeta(value).classes;
 }
 
+/** Colonnes du pipeline (CRM) et statuts regroupés dans chacune. */
+export const PIPELINE = [
+  { id: "nouveau", label: "Nouveau", statuts: ["nouveau", "non_qualifie", ""] },
+  { id: "contacte", label: "Contacté", statuts: ["contacte", "pas_de_reponse"] },
+  { id: "a_repondu", label: "A répondu", statuts: ["a_repondu"] },
+  { id: "info_request", label: "Demande d'info", statuts: ["info_request"] },
+  { id: "meeting", label: "Meeting", statuts: ["meeting", "rdv_pris"] },
+  { id: "client", label: "Client", statuts: ["client"] },
+  { id: "perdu", label: "Perdu", statuts: ["perdu", "pas_interesse", "pas_decisionnaire"] },
+] as const;
+
+export function colonnePipeline(statut: string | null | undefined): string {
+  const v = statut ?? "";
+  return PIPELINE.find((c) => (c.statuts as readonly string[]).includes(v))?.id ?? "nouveau";
+}
+
+/* ------------------------- Classifications formulaire ------------------------ */
+
 export const CLASSIFICATIONS = [
-  { value: "chaud", label: "🔥 Chaud", classes: "bg-accent/15 text-accent border-accent/30" },
-  { value: "tiede", label: "🌤️ Tiède", classes: "bg-warm/15 text-warm border-warm/30" },
-  { value: "froid", label: "❄️ Froid", classes: "bg-cold/15 text-cold border-cold/30" },
+  { value: "chaud", label: "🔥 Chaud", classes: PILL_NEG },
+  { value: "tiede", label: "🌤️ Tiède", classes: PILL_WAIT },
+  { value: "froid", label: "❄️ Froid", classes: PILL_INFO },
 ] as const;
 
 export function classificationMeta(value: string | null) {
@@ -41,10 +76,53 @@ export function classificationMeta(value: string | null) {
     CLASSIFICATIONS.find((c) => c.value === value) ?? {
       value: value ?? "",
       label: value ?? "—",
-      classes: "bg-muted text-muted-foreground border-border",
+      classes: PILL_NEUTRAL,
     }
   );
 }
+
+/* --------------------------- Classifications emails -------------------------- */
+
+export const CLASSIFICATIONS_EMAIL = [
+  { value: "interesse", label: "Intéressé", classes: PILL_POS },
+  { value: "demande_info", label: "Demande d'info", classes: PILL_INFO },
+  { value: "pas_interesse", label: "Pas intéressé", classes: PILL_NEG },
+  { value: "absent_auto", label: "Absence auto", classes: PILL_NEUTRAL },
+  { value: "autre", label: "Autre", classes: PILL_NEUTRAL },
+] as const;
+
+export function classificationEmailMeta(value: string | null) {
+  return (
+    CLASSIFICATIONS_EMAIL.find((c) => c.value === value) ?? {
+      value: value ?? "autre",
+      label: "Autre",
+      classes: PILL_NEUTRAL,
+    }
+  );
+}
+
+/* --------------------------------- Campagnes --------------------------------- */
+
+export const STATUTS_CAMPAGNE = [
+  { value: "brouillon", label: "Brouillon", classes: PILL_NEUTRAL },
+  { value: "en_cours", label: "En cours", classes: PILL_WAIT },
+  { value: "en_pause", label: "En pause", classes: PILL_INFO },
+  { value: "terminee", label: "Terminée", classes: PILL_POS },
+] as const;
+
+export function statutCampagneMeta(value: string | null) {
+  return (
+    STATUTS_CAMPAGNE.find((s) => s.value === value) ?? {
+      value: value ?? "",
+      label: value ?? "—",
+      classes: PILL_NEUTRAL,
+    }
+  );
+}
+
+export const LIMITE_QUOTIDIENNE = 300;
+
+/* ---------------------------------- Utils ------------------------------------ */
 
 export function useRealtime(table: string, queryKeys: string[]) {
   const queryClient = useQueryClient();
@@ -75,4 +153,16 @@ export function formatDate(value: string | null | undefined): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+export function formatJour(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+}
+
+export function extrait(text: string | null | undefined, max = 120): string {
+  const t = (text ?? "").replace(/\s+/g, " ").trim();
+  return t.length > max ? `${t.slice(0, max)}…` : t || "—";
 }

@@ -1,14 +1,14 @@
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Radar } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/sirenly-ui";
+import { supabase } from "@/integrations/supabase/client";
+import { SECTEURS, TRANCHES_EFFECTIF, secteurLabel } from "@/lib/secteurs";
 import { generateLeads } from "@/lib/sirenly.functions";
+import { formatDate } from "@/lib/sirenly";
 
 export const Route = createFileRoute("/radar")({
   head: () => ({
@@ -17,12 +17,12 @@ export const Route = createFileRoute("/radar")({
       {
         name: "description",
         content:
-          "Lancez le radar BODACC par département et enrichissez les créations d'entreprises via Google Places.",
+          "Radar de prospection : nouvelles entreprises (BODACC) ou entreprises établies, par secteur et effectif.",
       },
       { property: "og:title", content: "Génération de leads — Sirenly" },
       {
         property: "og:description",
-        content: "Radar BODACC par département enrichi par Google Places.",
+        content: "Ciblez vos prospects par département, secteur d'activité et taille d'entreprise.",
       },
     ],
   }),
@@ -30,81 +30,237 @@ export const Route = createFileRoute("/radar")({
 });
 
 function RadarPage() {
+  const qc = useQueryClient();
+  const lancer = useServerFn(generateLeads);
+
+  const [source, setSource] = useState<"bodacc" | "etablies">("bodacc");
   const [departement, setDepartement] = useState("74");
   const [jours, setJours] = useState(7);
-  const run = useServerFn(generateLeads);
+  const [secteurs, setSecteurs] = useState<string[]>([]);
+  const [autreSecteur, setAutreSecteur] = useState("");
+  const [effectifs, setEffectifs] = useState<string[]>([]);
+  const [chargement, setChargement] = useState(false);
+  const [resultat, setResultat] = useState<string | null>(null);
+  const [nomProfil, setNomProfil] = useState("");
 
-  const mutation = useMutation({
-    mutationFn: () => run({ data: { departement, jours } }),
-    onSuccess: (res) => {
-      toast.success(`${res.ajoutes} nouveau(x) lead(s) ajouté(s)`, {
-        description: `${res.total} annonce(s) retenue(s), ${res.misAJour} mise(s) à jour${
-          res.googleActif ? "" : " · Google Places non configuré"
-        }`,
-      });
-    },
-    onError: (error: Error) => toast.error("Échec du radar", { description: error.message }),
+  const { data: profils } = useQuery({
+    queryKey: ["profils"],
+    queryFn: async () =>
+      (await supabase.from("profils_ciblage").select("*").order("date_creation", { ascending: false }))
+        .data ?? [],
   });
+
+  function toggle(list: string[], set: (v: string[]) => void, value: string) {
+    set(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
+  }
+
+  async function lancerRadar() {
+    setChargement(true);
+    setResultat(null);
+    try {
+      const res = await lancer({
+        data: { source, departement, jours, secteurs, autreSecteur, effectifs },
+      });
+      setResultat(
+        `${res.total} entreprise(s) analysée(s) · ${res.ajoutes} ajoutée(s) · ${res.misAJour} mise(s) à jour${res.googleActif ? "" : " · enrichissement Google inactif"}`,
+      );
+      toast.success(`${res.ajoutes} nouveau(x) lead(s)`);
+      void qc.invalidateQueries({ queryKey: ["leads-liste"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur du radar");
+    } finally {
+      setChargement(false);
+    }
+  }
+
+  async function enregistrerProfil() {
+    if (!nomProfil.trim()) {
+      toast.error("Donnez un nom au profil.");
+      return;
+    }
+    const { error } = await supabase.from("profils_ciblage").insert({
+      nom: nomProfil,
+      source,
+      secteurs,
+      departement,
+      effectif_min: effectifs[0] ?? null,
+      effectif_max: effectifs[effectifs.length - 1] ?? null,
+    });
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Ciblage enregistré");
+      setNomProfil("");
+      void qc.invalidateQueries({ queryKey: ["profils"] });
+    }
+  }
+
+  function chargerProfil(p: Record<string, unknown>) {
+    setSource((p["source"] as "bodacc" | "etablies") ?? "bodacc");
+    setDepartement(String(p["departement"] ?? "74"));
+    setSecteurs(Array.isArray(p["secteurs"]) ? (p["secteurs"] as string[]) : []);
+    const min = p["effectif_min"] as string | null;
+    const max = p["effectif_max"] as string | null;
+    setEffectifs([min, max].filter(Boolean) as string[]);
+    toast.success("Profil chargé");
+  }
 
   return (
     <div className="space-y-6">
-      <header>
-        <p className="text-sm text-muted-foreground">
-          Créations d'entreprises BODACC, filtrées puis enrichies avec Google Places.
-        </p>
-      </header>
+      <PageHeader
+        titre="Génération de leads"
+        sousTitre="Ciblez par source, secteur, département et effectif"
+      />
 
+      <div className="panel flex flex-wrap gap-2 p-2">
+        {(
+          [
+            ["bodacc", "Nouvelles entreprises (BODACC)"],
+            ["etablies", "Entreprises établies"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setSource(id)}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              source === id ? "bg-primary-soft text-primary-strong" : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <section className="panel max-w-xl space-y-5 p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="departement">Département</Label>
-            <Input
-              id="departement"
-              value={departement}
-              onChange={(e) => setDepartement(e.target.value)}
-              placeholder="74"
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="panel space-y-6 p-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="th-label">Département</span>
+              <input
+                value={departement}
+                onChange={(e) => setDepartement(e.target.value)}
+                placeholder="74"
+                className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              />
+            </label>
+            {source === "bodacc" ? (
+              <label className="block">
+                <span className="th-label">Période (jours)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={jours}
+                  onChange={(e) => setJours(Number(e.target.value))}
+                  className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                />
+              </label>
+            ) : (
+              <div>
+                <span className="th-label">Tranches d'effectif salarié</span>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {TRANCHES_EFFECTIF.map((t) => (
+                    <button
+                      key={t.value}
+                      onClick={() => toggle(effectifs, setEffectifs, t.value)}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                        effectifs.includes(t.value)
+                          ? "border-primary bg-primary-soft text-primary-strong"
+                          : "border-border bg-card text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <span className="th-label">Secteurs ciblés</span>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {SECTEURS.map((s) => (
+                <label
+                  key={s.id}
+                  className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
+                    secteurs.includes(s.id)
+                      ? "border-primary bg-primary-soft text-primary-strong"
+                      : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={secteurs.includes(s.id)}
+                    onChange={() => toggle(secteurs, setSecteurs, s.id)}
+                    className="accent-[var(--primary)]"
+                  />
+                  <span className="truncate">{s.label}</span>
+                </label>
+              ))}
+            </div>
+            <input
+              value={autreSecteur}
+              onChange={(e) => setAutreSecteur(e.target.value)}
+              placeholder="Autre secteur (texte libre)…"
+              className="mt-3 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="jours">Nombre de jours</Label>
-            <Input
-              id="jours"
-              type="number"
-              min={1}
-              max={90}
-              value={jours}
-              onChange={(e) => setJours(Number(e.target.value) || 7)}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => void lancerRadar()}
+              disabled={chargement}
+              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60"
+            >
+              {chargement ? "Radar en cours…" : "Lancer le radar"}
+            </button>
+            {resultat && <p className="text-sm text-muted-foreground">{resultat}</p>}
+          </div>
+        </section>
+
+        <aside className="space-y-6">
+          <section className="panel p-6">
+            <h2 className="font-display text-base font-bold">Enregistrer ce ciblage</h2>
+            <input
+              value={nomProfil}
+              onChange={(e) => setNomProfil(e.target.value)}
+              placeholder="Cible nettoyage — BTP 74"
+              className="mt-3 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
             />
-          </div>
-        </div>
+            <button
+              onClick={() => void enregistrerProfil()}
+              className="mt-2 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm font-medium hover:bg-muted"
+            >
+              Enregistrer
+            </button>
+          </section>
 
-        <Button
-          className="w-full bg-brand font-semibold text-primary-foreground hover:opacity-90"
-          disabled={mutation.isPending || !departement}
-          onClick={() => mutation.mutate()}
-        >
-          <Radar className={`size-4 ${mutation.isPending ? "animate-spin" : ""}`} />
-          {mutation.isPending ? "Radar en cours…" : "Lancer le radar"}
-        </Button>
-
-        {mutation.data && (
-          <div className="rounded-xl border border-border bg-secondary/40 p-4 text-sm">
-            <p className="font-semibold text-primary">
-              {mutation.data.ajoutes} lead(s) ajouté(s)
-            </p>
-            <p className="mt-1 text-muted-foreground">
-              {mutation.data.total} annonce(s) retenue(s) · {mutation.data.misAJour} fiche(s)
-              actualisée(s) — statuts et notes existants préservés.
-            </p>
-          </div>
-        )}
-
-        <p className="text-xs text-muted-foreground">
-          Exclusions automatiques : holding, portage, gestion de participations, SCI, coursier,
-          livreur, livraison de repas, Uber Eats, à vélo.
-        </p>
-      </section>
+          <section className="panel p-6">
+            <h2 className="font-display text-base font-bold">Profils sauvegardés</h2>
+            <div className="mt-3 space-y-2">
+              {(profils ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground">Aucun profil enregistré.</p>
+              )}
+              {(profils ?? []).map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => chargerProfil(p as Record<string, unknown>)}
+                  className="block w-full rounded-xl border border-border p-3 text-left hover:bg-muted/60"
+                >
+                  <p className="truncate text-sm font-medium">{p.nom}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {p.source === "etablies" ? "Établies" : "BODACC"} · {p.departement} ·{" "}
+                    {(Array.isArray(p.secteurs) ? (p.secteurs as string[]) : [])
+                      .map(secteurLabel)
+                      .join(", ") || "tous secteurs"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{formatDate(p.date_creation)}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }
