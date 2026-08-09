@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { SECTEURS, TRANCHES_EFFECTIF, secteurLabel } from "@/lib/secteurs";
-import { generateLeads, reparerEmailsInvalides } from "@/lib/sirenly.functions";
+import { enrichirLot, generateLeads, reparerEmailsInvalides } from "@/lib/sirenly.functions";
 import { formatDate } from "@/lib/sirenly";
 
 export const Route = createFileRoute("/radar")({
