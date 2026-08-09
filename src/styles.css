@@ -19,6 +19,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-strong: var(--primary-strong);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -33,6 +35,8 @@
   --color-warm-foreground: var(--warm-foreground);
   --color-cold: var(--cold);
   --color-cold-foreground: var(--cold-foreground);
+  --color-violet: var(--violet);
+  --color-violet-foreground: var(--violet-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -55,55 +59,56 @@
 }
 
 :root {
-  --radius: 0.9rem;
-  --background: #0a0a1a;
-  --foreground: #f1f5f9;
-  --card: #141432;
-  --card-foreground: #f1f5f9;
-  --popover: #141432;
-  --popover-foreground: #f1f5f9;
-  --primary: #4f46e5;
+  --radius: 0.75rem;
+  --background: #fafafa;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+
+  /* Orange doré du logo Sirenly */
+  --primary: #e08a2b;
   --primary-foreground: #ffffff;
-  --secondary: #1e1e5a;
-  --secondary-foreground: #e2e8f0;
-  --muted: #1a1a3c;
-  --muted-foreground: #94a3b8;
-  --accent: #7c3aed;
-  --accent-foreground: #ffffff;
-  --destructive: #f43f5e;
+  --primary-soft: #fdf3e6;
+  --primary-strong: #a75f12;
+
+  --secondary: #f4f4f5;
+  --secondary-foreground: #27272a;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #fdf3e6;
+  --accent-foreground: #a75f12;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --success: #10b981;
-  --success-foreground: #06281e;
-  --warm: #f59e0b;
-  --warm-foreground: #2a1a00;
-  --cold: #38bdf8;
-  --cold-foreground: #06202e;
-  --border: #1e1e5a;
-  --input: #1e1e5a;
-  --ring: #4f46e5;
-  --chart-1: #4f46e5;
-  --chart-2: #7c3aed;
-  --chart-3: #10b981;
-  --chart-4: #f59e0b;
-  --chart-5: #38bdf8;
-  --sidebar: #0a0a1a;
-  --sidebar-foreground: #e2e8f0;
-  --sidebar-primary: #4f46e5;
+  --success: #ecfdf5;
+  --success-foreground: #047857;
+  --warm: #fff7ed;
+  --warm-foreground: #b45309;
+  --cold: #eff6ff;
+  --cold-foreground: #1d4ed8;
+  --violet: #f5f3ff;
+  --violet-foreground: #6d28d9;
+  --border: #e7e5e4;
+  --input: #e7e5e4;
+  --ring: #e08a2b;
+  --chart-1: #e08a2b;
+  --chart-2: #f0b26b;
+  --chart-3: #f7d5ab;
+  --chart-4: #a75f12;
+  --chart-5: #d4d4d8;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #3f3f46;
+  --sidebar-primary: #e08a2b;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #141432;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #1e1e5a;
-  --sidebar-ring: #4f46e5;
+  --sidebar-accent: #fdf3e6;
+  --sidebar-accent-foreground: #a75f12;
+  --sidebar-border: #e7e5e4;
+  --sidebar-ring: #e08a2b;
 
-  --gradient-brand: linear-gradient(135deg, #4f46e5, #7c3aed);
-  --gradient-panel: linear-gradient(160deg, #16163a, #141432);
-  --shadow-panel: 0 8px 30px rgb(0 0 0 / 0.35);
-  --shadow-glow: 0 10px 30px -10px rgb(79 70 229 / 0.45);
-}
-
-
-.dark {
-  color-scheme: dark;
+  --gradient-brand: linear-gradient(90deg, #e08a2b, #f0b26b);
+  --shadow-panel: 0 1px 2px rgb(24 24 27 / 0.04), 0 1px 3px rgb(24 24 27 / 0.06);
+  --shadow-lift: 0 4px 16px -6px rgb(24 24 27 / 0.12);
 }
 
 @layer base {
@@ -112,7 +117,7 @@
   }
 
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   body {
@@ -126,7 +131,7 @@
 @utility panel {
   background-color: var(--color-card);
   border: 1px solid var(--color-border);
-  border-radius: calc(var(--radius) + 12px);
+  border-radius: calc(var(--radius) + 4px);
   box-shadow: var(--shadow-panel);
 }
 
@@ -135,18 +140,20 @@
   letter-spacing: -0.02em;
 }
 
-@utility dot-grid {
-  background-image: radial-gradient(var(--color-primary) 1px, transparent 1px);
-  background-size: 30px 30px;
+@utility th-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
 }
 
+@utility bg-brand {
+  background-image: var(--gradient-brand);
+}
 
 @utility text-gradient-brand {
   background-image: var(--gradient-brand);
   background-clip: text;
   color: transparent;
-}
-
-@utility bg-brand {
-  background-image: var(--gradient-brand);
 }
