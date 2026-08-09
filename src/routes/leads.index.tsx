@@ -67,13 +67,14 @@ function LeadsPage() {
     const okQ = !q || (l.nom ?? "").toLowerCase().includes(q.toLowerCase());
     const okStatut = statut === "tous" || (l.statut ?? "") === statut;
     const okCamp = campagne === "toutes" || l.campagne_id === campagne;
-    const okGoogle =
-      google === "tous" || (google === "oui" ? Boolean(l.note_google) : !l.note_google);
+    const okGoogle = google === "tous" || presenceGoogle(l.note_google, l.nb_avis_google) === google;
     const okCommune = commune === "toutes" || l.commune === commune;
     const tags = Array.isArray(l.tags) ? (l.tags as string[]) : [];
     const okContact =
       contact === "tous" ||
-      (contact === "email" ? Boolean(l.email) : tags.includes("contactable_via_reseaux"));
+      (contact === "email"
+        ? Boolean(l.email)
+        : contactableViaReseaux(l) || tags.includes("contactable_via_reseaux"));
     return okQ && okStatut && okCamp && okGoogle && okCommune && okContact;
   });
 
@@ -120,9 +121,11 @@ function LeadsPage() {
           onChange={(e) => setGoogle(e.target.value)}
           className="h-9 rounded-lg border border-border bg-card px-3 text-sm"
         >
-          <option value="tous">Fiche Google : tous</option>
-          <option value="oui">Avec fiche Google</option>
-          <option value="non">Sans fiche Google</option>
+          {FILTRES_GOOGLE.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
         </select>
         <select
           value={contact}
@@ -163,7 +166,7 @@ function LeadsPage() {
                   "Activité",
                   "Commune",
                   "Téléphone",
-                  "Note Google",
+                  "Fiche Google",
                   "Statut",
                   "Campagne",
                   "Dernière activité",
@@ -195,7 +198,7 @@ function LeadsPage() {
                     <td className="px-4 py-3 text-muted-foreground">{l.commune || "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{l.telephone || "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {l.note_google ? `${l.note_google} (${l.nb_avis_google || 0})` : "—"}
+                      <GoogleBadge note={l.note_google} avis={l.nb_avis_google} />
                     </td>
                     <td className="px-4 py-3">
                       <Pill label={meta.label} classes={meta.classes} />

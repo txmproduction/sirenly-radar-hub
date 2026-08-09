@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { PageHeader } from "@/components/sirenly-ui";
+import { GoogleBadge, PageHeader } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { PIPELINE, colonnePipeline, formatDate, useRealtime } from "@/lib/sirenly";
 
@@ -101,6 +101,9 @@ function PipelinePage() {
                         {l.activite || "—"}
                       </p>
                       <p className="text-xs text-muted-foreground">{l.commune || "—"}</p>
+                      <div className="mt-2">
+                        <GoogleBadge note={l.note_google} avis={l.nb_avis_google} />
+                      </div>
                       {nomCampagne(l.campagne_id) && (
                         <span className="mt-2 inline-flex rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-strong">
                           {nomCampagne(l.campagne_id)}
