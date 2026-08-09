@@ -148,6 +148,25 @@ function RadarPage() {
         ))}
       </div>
 
+      <div className="panel flex flex-wrap items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-sm font-medium">Nettoyer les emails invalides</p>
+          <p className="text-sm text-muted-foreground">
+            Détecte les faux positifs (moteurs de recherche, adresses techniques) et relance la
+            cascade d'enrichissement sur ces leads.
+          </p>
+        </div>
+        <button
+          onClick={lancerReparation}
+          disabled={reparation}
+          className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
+        >
+          {reparation ? "Réparation…" : "Réparer les emails"}
+        </button>
+      </div>
+
+
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="panel space-y-6 p-6">
           <div className="grid gap-4 sm:grid-cols-2">
