@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { SECTEURS, TRANCHES_EFFECTIF, secteurLabel } from "@/lib/secteurs";
-import { generateLeads, reparerEmailsInvalides } from "@/lib/sirenly.functions";
+import { enrichirLot, generateLeads, reparerEmailsInvalides } from "@/lib/sirenly.functions";
 import { formatDate } from "@/lib/sirenly";
 
 export const Route = createFileRoute("/radar")({
@@ -32,8 +32,11 @@ export const Route = createFileRoute("/radar")({
 function RadarPage() {
   const qc = useQueryClient();
   const lancer = useServerFn(generateLeads);
+  const lot = useServerFn(enrichirLot);
   const reparer = useServerFn(reparerEmailsInvalides);
   const [reparation, setReparation] = useState(false);
+  const [progression, setProgression] = useState<{ faits: number; total: number } | null>(null);
+
 
   async function lancerReparation() {
     setReparation(true);
@@ -75,6 +78,7 @@ function RadarPage() {
   async function lancerRadar() {
     setChargement(true);
     setResultat(null);
+    setProgression(null);
     try {
       const res = await lancer({
         data: { source, departement, jours, secteurs, autreSecteur, effectifs },
@@ -82,14 +86,37 @@ function RadarPage() {
       setResultat(
         `${res.total} entreprise(s) analysée(s) · ${res.ajoutes} ajoutée(s) · ${res.misAJour} mise(s) à jour${res.googleActif ? "" : " · enrichissement Google inactif"}`,
       );
-      toast.success(`${res.ajoutes} nouveau(x) lead(s)`);
+      toast.success(`${res.ajoutes} nouveau(x) lead(s) — enrichissement en cours`);
       void qc.invalidateQueries({ queryKey: ["leads-liste"] });
+      setChargement(false);
+      await enrichirEnArrierePlan(res.aEnrichir);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur du radar");
-    } finally {
       setChargement(false);
     }
   }
+
+  /** Enrichissement par lots successifs (évite tout timeout sur gros volumes). */
+  async function enrichirEnArrierePlan(total: number) {
+    if (!total) return;
+    let restants = total;
+    setProgression({ faits: 0, total });
+    while (restants > 0) {
+      try {
+        const r = await lot({ data: { taille: 8 } });
+        restants = r.restants;
+        setProgression({ faits: Math.max(0, total - restants), total });
+        void qc.invalidateQueries({ queryKey: ["leads-liste"] });
+        if (r.traites === 0) break;
+      } catch {
+        break;
+      }
+    }
+    setProgression(null);
+    toast.success("Enrichissement terminé");
+    void qc.invalidateQueries({ queryKey: ["leads-liste"] });
+  }
+
 
   async function enregistrerProfil() {
     if (!nomProfil.trim()) {
@@ -253,7 +280,34 @@ function RadarPage() {
             </button>
             {resultat && <p className="text-sm text-muted-foreground">{resultat}</p>}
           </div>
+
+          {progression && (
+            <div className="rounded-xl border border-border bg-muted/40 p-4">
+              <div className="flex items-center justify-between text-sm font-medium">
+                <span className="flex items-center gap-2">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Enrichissement en arrière-plan
+                </span>
+                <span>
+                  {progression.faits}/{progression.total} leads enrichis
+                </span>
+              </div>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{
+                    width: `${Math.round((progression.faits / Math.max(1, progression.total)) * 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Les leads sont déjà visibles dans « Tous les leads » ; leurs coordonnées se
+                complètent au fur et à mesure.
+              </p>
+            </div>
+          )}
         </section>
+
 
         <aside className="space-y-6">
           <section className="panel p-6">

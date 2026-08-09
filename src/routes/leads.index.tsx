@@ -183,14 +183,23 @@ function LeadsPage() {
                 return (
                   <tr key={l.id} className="border-b border-border last:border-0 hover:bg-muted/50">
                     <td className="px-4 py-3">
-                      <Link
-                        to="/leads/$id"
-                        params={{ id: l.id }}
-                        className="font-medium hover:text-primary"
-                      >
-                        {l.nom ?? l.id}
-                      </Link>
+                      <span className="flex items-center gap-2">
+                        <Link
+                          to="/leads/$id"
+                          params={{ id: l.id }}
+                          className="font-medium hover:text-primary"
+                        >
+                          {l.nom ?? l.id}
+                        </Link>
+                        {l.enrichissement_en_cours && (
+                          <span
+                            title="Enrichissement en cours"
+                            className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent"
+                          />
+                        )}
+                      </span>
                     </td>
+
                     <td className="px-4 py-3 text-muted-foreground">{l.contact || "—"}</td>
                     <td className="max-w-[220px] truncate px-4 py-3 text-muted-foreground">
                       {l.activite || "—"}
