@@ -14,26 +14,85 @@ export type Database = {
   }
   public: {
     Tables: {
+      campagnes: {
+        Row: {
+          brief_ia: string | null
+          corps: string | null
+          date_creation: string
+          date_maj: string
+          id: string
+          lead_ids: Json
+          mode: string
+          nom: string
+          planification: string
+          profil_ciblage_id: string | null
+          statut: string
+          sujet: string | null
+        }
+        Insert: {
+          brief_ia?: string | null
+          corps?: string | null
+          date_creation?: string
+          date_maj?: string
+          id?: string
+          lead_ids?: Json
+          mode?: string
+          nom: string
+          planification?: string
+          profil_ciblage_id?: string | null
+          statut?: string
+          sujet?: string | null
+        }
+        Update: {
+          brief_ia?: string | null
+          corps?: string | null
+          date_creation?: string
+          date_maj?: string
+          id?: string
+          lead_ids?: Json
+          mode?: string
+          nom?: string
+          planification?: string
+          profil_ciblage_id?: string | null
+          statut?: string
+          sujet?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campagnes_profil_ciblage_id_fkey"
+            columns: ["profil_ciblage_id"]
+            isOneToOne: false
+            referencedRelation: "profils_ciblage"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emails_envoyes: {
         Row: {
+          campagne_id: string | null
           contenu: string | null
           date_envoi: string
+          destinataire: string | null
           id: string
           lead_id: string | null
           statut_envoi: string | null
           sujet: string | null
         }
         Insert: {
+          campagne_id?: string | null
           contenu?: string | null
           date_envoi?: string
+          destinataire?: string | null
           id?: string
           lead_id?: string | null
           statut_envoi?: string | null
           sujet?: string | null
         }
         Update: {
+          campagne_id?: string | null
           contenu?: string | null
           date_envoi?: string
+          destinataire?: string | null
           id?: string
           lead_id?: string | null
           statut_envoi?: string | null
@@ -41,7 +100,86 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "emails_envoyes_campagne_id_fkey"
+            columns: ["campagne_id"]
+            isOneToOne: false
+            referencedRelation: "campagnes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "emails_envoyes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipe: {
+        Row: {
+          date_ajout: string
+          email: string
+          id: string
+          nom: string
+          role: string
+        }
+        Insert: {
+          date_ajout?: string
+          email: string
+          id?: string
+          nom: string
+          role?: string
+        }
+        Update: {
+          date_ajout?: string
+          email?: string
+          id?: string
+          nom?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      file_envoi: {
+        Row: {
+          campagne_id: string | null
+          contenu_genere: string | null
+          date_creation: string
+          date_prevue: string
+          id: string
+          lead_id: string | null
+          statut: string
+          sujet_genere: string | null
+        }
+        Insert: {
+          campagne_id?: string | null
+          contenu_genere?: string | null
+          date_creation?: string
+          date_prevue?: string
+          id?: string
+          lead_id?: string | null
+          statut?: string
+          sujet_genere?: string | null
+        }
+        Update: {
+          campagne_id?: string | null
+          contenu_genere?: string | null
+          date_creation?: string
+          date_prevue?: string
+          id?: string
+          lead_id?: string | null
+          statut?: string
+          sujet_genere?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_envoi_campagne_id_fkey"
+            columns: ["campagne_id"]
+            isOneToOne: false
+            referencedRelation: "campagnes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_envoi_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
@@ -53,10 +191,14 @@ export type Database = {
         Row: {
           activite: string | null
           adresse: string | null
+          campagne_id: string | null
           code_postal: string | null
           commune: string | null
           contact: string | null
           date_maj: string
+          derniere_activite: string
+          effectif: string | null
+          email: string | null
           forme_juridique: string | null
           id: string
           nb_avis_google: string | null
@@ -66,16 +208,22 @@ export type Database = {
           qualifie_par: string | null
           rdv_date: string | null
           rdv_heure: string | null
+          siren: string | null
+          source: string
           statut: string
           telephone: string | null
         }
         Insert: {
           activite?: string | null
           adresse?: string | null
+          campagne_id?: string | null
           code_postal?: string | null
           commune?: string | null
           contact?: string | null
           date_maj?: string
+          derniere_activite?: string
+          effectif?: string | null
+          email?: string | null
           forme_juridique?: string | null
           id: string
           nb_avis_google?: string | null
@@ -85,16 +233,22 @@ export type Database = {
           qualifie_par?: string | null
           rdv_date?: string | null
           rdv_heure?: string | null
+          siren?: string | null
+          source?: string
           statut?: string
           telephone?: string | null
         }
         Update: {
           activite?: string | null
           adresse?: string | null
+          campagne_id?: string | null
           code_postal?: string | null
           commune?: string | null
           contact?: string | null
           date_maj?: string
+          derniere_activite?: string
+          effectif?: string | null
+          email?: string | null
           forme_juridique?: string | null
           id?: string
           nb_avis_google?: string | null
@@ -104,10 +258,153 @@ export type Database = {
           qualifie_par?: string | null
           rdv_date?: string | null
           rdv_heure?: string | null
+          siren?: string | null
+          source?: string
           statut?: string
           telephone?: string | null
         }
         Relationships: []
+      }
+      parametres: {
+        Row: {
+          classification_auto: boolean
+          contexte_ia: string | null
+          date_maj: string
+          email_reception: string | null
+          exclusions: Json
+          expediteur_email: string | null
+          expediteur_nom: string | null
+          fuseau_horaire: string
+          id: string
+          logo_url: string | null
+          nom_agence: string
+          notif_recap_quotidien: boolean
+          notif_reponse_interessee: boolean
+          radar_departement: string | null
+        }
+        Insert: {
+          classification_auto?: boolean
+          contexte_ia?: string | null
+          date_maj?: string
+          email_reception?: string | null
+          exclusions?: Json
+          expediteur_email?: string | null
+          expediteur_nom?: string | null
+          fuseau_horaire?: string
+          id?: string
+          logo_url?: string | null
+          nom_agence?: string
+          notif_recap_quotidien?: boolean
+          notif_reponse_interessee?: boolean
+          radar_departement?: string | null
+        }
+        Update: {
+          classification_auto?: boolean
+          contexte_ia?: string | null
+          date_maj?: string
+          email_reception?: string | null
+          exclusions?: Json
+          expediteur_email?: string | null
+          expediteur_nom?: string | null
+          fuseau_horaire?: string
+          id?: string
+          logo_url?: string | null
+          nom_agence?: string
+          notif_recap_quotidien?: boolean
+          notif_reponse_interessee?: boolean
+          radar_departement?: string | null
+        }
+        Relationships: []
+      }
+      profils_ciblage: {
+        Row: {
+          autre_secteur: string | null
+          date_creation: string
+          departement: string | null
+          effectif_max: string | null
+          effectif_min: string | null
+          id: string
+          jours: number
+          nom: string
+          secteurs: Json
+          source: string
+        }
+        Insert: {
+          autre_secteur?: string | null
+          date_creation?: string
+          departement?: string | null
+          effectif_max?: string | null
+          effectif_min?: string | null
+          id?: string
+          jours?: number
+          nom: string
+          secteurs?: Json
+          source?: string
+        }
+        Update: {
+          autre_secteur?: string | null
+          date_creation?: string
+          departement?: string | null
+          effectif_max?: string | null
+          effectif_min?: string | null
+          id?: string
+          jours?: number
+          nom?: string
+          secteurs?: Json
+          source?: string
+        }
+        Relationships: []
+      }
+      reponses_emails: {
+        Row: {
+          campagne_id: string | null
+          classification: string
+          contenu: string | null
+          date_reception: string
+          email_expediteur: string | null
+          id: string
+          lead_id: string | null
+          lu: boolean
+          sujet: string | null
+        }
+        Insert: {
+          campagne_id?: string | null
+          classification?: string
+          contenu?: string | null
+          date_reception?: string
+          email_expediteur?: string | null
+          id?: string
+          lead_id?: string | null
+          lu?: boolean
+          sujet?: string | null
+        }
+        Update: {
+          campagne_id?: string | null
+          classification?: string
+          contenu?: string | null
+          date_reception?: string
+          email_expediteur?: string | null
+          id?: string
+          lead_id?: string | null
+          lu?: boolean
+          sujet?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reponses_emails_campagne_id_fkey"
+            columns: ["campagne_id"]
+            isOneToOne: false
+            referencedRelation: "campagnes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reponses_emails_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reponses_formulaire: {
         Row: {
