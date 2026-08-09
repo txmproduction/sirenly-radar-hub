@@ -132,9 +132,15 @@ export async function fetchEntreprisesEtablies(params: {
         commune,
         code_postal: s(siege["code_postal"]),
         adresse: s(siege["adresse"]).replace(/\s+/g, " "),
-        forme_juridique: s(e.nature_juridique),
+        forme_juridique: formeJuridique(
+          s(e.categorie_juridique_libelle) || s(e.libelle_nature_juridique),
+          s(e.nature_juridique),
+        ),
         siren: s(e.siren),
-        effectif: TRANCHE_LABEL[s(e.tranche_effectif_salarie)] ?? "Non renseigné",
+        effectif:
+          TRANCHE_LABEL[s(e.tranche_effectif_salarie)] ??
+          TRANCHE_LABEL[s(siege["tranche_effectif_salarie"])] ??
+          "Non renseigné",
       });
     }
   }
