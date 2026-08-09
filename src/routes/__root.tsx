@@ -151,10 +151,11 @@ const ALL_NAV: NavItem[] = NAV.flatMap((g) => g.items);
 
 function Shell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const current =
+  const title =
     ALL_NAV.filter((i) => (i.to === "/" ? pathname === "/" : pathname.startsWith(i.to))).sort(
       (a, b) => b.to.length - a.to.length,
-    )[0] ?? ALL_NAV[0];
+    )[0]?.title ?? "Sirenly";
+
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
