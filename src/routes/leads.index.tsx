@@ -2,9 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { EmptyState, PageHeader, Pill } from "@/components/sirenly-ui";
+import { EmptyState, GoogleBadge, PageHeader, Pill } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUTS, formatDate, statutMeta, useRealtime } from "@/lib/sirenly";
+import {
+  FILTRES_GOOGLE,
+  STATUTS,
+  contactableViaReseaux,
+  formatDate,
+  presenceGoogle,
+  statutMeta,
+  useRealtime,
+} from "@/lib/sirenly";
+
 
 type Search = { q: string };
 
