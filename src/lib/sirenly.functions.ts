@@ -82,28 +82,12 @@ export const generateLeads = createServerFn({ method: "POST" })
       leads = bruts.filter((l) => !isExcluded(l.activite, l.forme_juridique, l.nom));
     }
 
+    // ── Étape 1 (immédiate) : insertion des infos de base, enrichissement différé ──
     let ajoutes = 0;
     let misAJour = 0;
+    const ids: string[] = [];
 
     for (const lead of leads) {
-      const enrichment = googleKey
-        ? await enrichWithGoogle(lead, googleKey)
-        : { note_google: "", nb_avis_google: "", telephone: "", site_web: "" };
-
-      const presence = await enrichirPresence({
-        nom: lead.nom,
-        commune: lead.commune,
-        activite: lead.activite,
-        site_web: enrichment.site_web,
-        telephone: enrichment.telephone,
-      });
-
-      const { data: existing } = await supabase
-        .from("leads")
-        .select("id")
-        .eq("id", lead.id)
-        .maybeSingle();
-
       const base = {
         nom: lead.nom,
         contact: lead.contact,
@@ -115,23 +99,17 @@ export const generateLeads = createServerFn({ method: "POST" })
         siren: lead.siren ?? null,
         effectif: lead.effectif ?? null,
         source: data.source,
-        note_google: enrichment.note_google,
-        nb_avis_google: enrichment.nb_avis_google,
-        telephone: presence.telephone || enrichment.telephone,
-        email: presence.email || null,
-        email_source: presence.email_source || null,
-        site_web: presence.site_web || null,
-        facebook_url: presence.facebook_url || null,
-        instagram_url: presence.instagram_url || null,
-        linkedin_url: presence.linkedin_url || null,
-        tiktok_url: presence.tiktok_url || null,
-        fiches_annuaires: presence.fiches_annuaires,
-        tags: presence.tags,
+        enrichissement_en_cours: true,
         date_maj: new Date().toISOString(),
       };
 
+      const { data: existing } = await supabase
+        .from("leads")
+        .select("id")
+        .eq("id", lead.id)
+        .maybeSingle();
+
       if (existing) {
-        // Ne pas écraser une donnée existante par une valeur vide
         const patch = Object.fromEntries(
           Object.entries(base).filter(([, v]) => v !== null && v !== ""),
         );
@@ -141,16 +119,107 @@ export const generateLeads = createServerFn({ method: "POST" })
         const { error } = await supabase.from("leads").insert({ id: lead.id, ...base });
         if (!error) ajoutes += 1;
       }
+      ids.push(lead.id);
     }
 
     return {
       total: leads.length,
       ajoutes,
       misAJour,
+      aEnrichir: ids.length,
       googleActif: Boolean(googleKey),
       source: data.source,
     };
   });
+
+/* --------------------- Enrichissement par lots (arrière-plan) --------------------- */
+
+/**
+ * Traite un lot de leads en attente d'enrichissement, en parallèle.
+ * Appelée en boucle par l'interface jusqu'à ce que `restants` soit à 0 :
+ * évite tout risque de timeout sur de gros volumes.
+ */
+export const enrichirLot = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z.object({ taille: z.number().int().min(1).max(10).default(8) }).parse(data ?? {}),
+  )
+  .handler(async ({ data }) => {
+    const supabase = await admin();
+    const googleKey = process.env["GOOGLE_PLACES_API_KEY"] ?? "";
+
+    const { data: lot } = await supabase
+      .from("leads")
+      .select("id, nom, commune, activite")
+      .eq("enrichissement_en_cours", true)
+      .order("date_maj", { ascending: true })
+      .limit(data.taille);
+
+    const cibles = lot ?? [];
+
+    await Promise.all(
+      cibles.map(async (lead) => {
+        try {
+          const g = googleKey
+            ? await enrichWithGoogle(
+                {
+                  id: lead.id,
+                  nom: lead.nom ?? "",
+                  commune: lead.commune ?? "",
+                  contact: "",
+                  activite: lead.activite ?? "",
+                  code_postal: "",
+                  adresse: "",
+                  forme_juridique: "",
+                },
+                googleKey,
+              )
+            : { note_google: "", nb_avis_google: "", telephone: "", site_web: "" };
+
+          const presence = await enrichirPresence({
+            nom: lead.nom ?? "",
+            commune: lead.commune ?? "",
+            activite: lead.activite ?? "",
+            site_web: g.site_web,
+            telephone: g.telephone,
+          });
+
+          await supabase
+            .from("leads")
+            .update({
+              note_google: g.note_google || null,
+              nb_avis_google: g.nb_avis_google || null,
+              telephone: presence.telephone || g.telephone || null,
+              email: presence.email || null,
+              email_source: presence.email_source || null,
+              site_web: presence.site_web || g.site_web || null,
+              facebook_url: presence.facebook_url || null,
+              instagram_url: presence.instagram_url || null,
+              linkedin_url: presence.linkedin_url || null,
+              tiktok_url: presence.tiktok_url || null,
+              fiches_annuaires: presence.fiches_annuaires,
+              tags: presence.tags,
+              enrichissement_en_cours: false,
+              date_maj: new Date().toISOString(),
+            })
+            .eq("id", lead.id);
+        } catch {
+          // Ne jamais bloquer la file : on libère le lead même en cas d'échec.
+          await supabase
+            .from("leads")
+            .update({ enrichissement_en_cours: false, date_maj: new Date().toISOString() })
+            .eq("id", lead.id);
+        }
+      }),
+    );
+
+    const { count } = await supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("enrichissement_en_cours", true);
+
+    return { traites: cibles.length, restants: count ?? 0 };
+  });
+
 
 /* ------------------------------- Aperçu IA ---------------------------------- */
 
