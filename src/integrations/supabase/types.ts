@@ -200,6 +200,7 @@ export type Database = {
           effectif: string | null
           email: string | null
           email_source: string | null
+          enrichissement_en_cours: boolean
           facebook_url: string | null
           fiches_annuaires: Json
           forme_juridique: string | null
@@ -233,6 +234,7 @@ export type Database = {
           effectif?: string | null
           email?: string | null
           email_source?: string | null
+          enrichissement_en_cours?: boolean
           facebook_url?: string | null
           fiches_annuaires?: Json
           forme_juridique?: string | null
@@ -266,6 +268,7 @@ export type Database = {
           effectif?: string | null
           email?: string | null
           email_source?: string | null
+          enrichissement_en_cours?: boolean
           facebook_url?: string | null
           fiches_annuaires?: Json
           forme_juridique?: string | null
