@@ -4,10 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { PageHeader } from "@/components/sirenly-ui";
+import { GoogleBadge, PageHeader } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { apercuIA } from "@/lib/sirenly.functions";
-import { STATUTS } from "@/lib/sirenly";
+import { FILTRES_GOOGLE, STATUTS, contactableViaReseaux, presenceGoogle } from "@/lib/sirenly";
 
 export const Route = createFileRoute("/campagnes/nouvelle")({
   head: () => ({
@@ -47,6 +47,7 @@ function NouvelleCampagne() {
   const [apercus, setApercus] = useState<Array<{ nom: string; sujet: string; corps: string }>>([]);
   const [chargement, setChargement] = useState(false);
   const [profil, setProfil] = useState("");
+  const [contact, setContact] = useState("tous");
 
   const { data } = useQuery({
     queryKey: ["campagne-cible"],
@@ -68,9 +69,11 @@ function NouvelleCampagne() {
     const okAct =
       !activite || (l.activite ?? "").toLowerCase().includes(activite.toLowerCase());
     const okCommune = commune === "toutes" || l.commune === commune;
-    const okGoogle =
-      google === "tous" || (google === "oui" ? Boolean(l.note_google) : !l.note_google);
-    return okStatut && okAct && okCommune && okGoogle;
+    const okGoogle = google === "tous" || presenceGoogle(l.note_google, l.nb_avis_google) === google;
+    const okContact =
+      contact === "tous" ||
+      (contact === "email" ? Boolean(l.email) : contactableViaReseaux(l));
+    return okStatut && okAct && okCommune && okGoogle && okContact;
   });
 
   async function lancerApercu() {
@@ -205,10 +208,48 @@ function NouvelleCampagne() {
               onChange={(e) => setGoogle(e.target.value)}
               className="h-10 rounded-lg border border-border bg-card px-3 text-sm"
             >
-              <option value="tous">Fiche Google : tous</option>
-              <option value="oui">Avec fiche</option>
-              <option value="non">Sans fiche</option>
+              {FILTRES_GOOGLE.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
             </select>
+            <select
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              className="h-10 rounded-lg border border-border bg-card px-3 text-sm"
+            >
+              <option value="tous">Contactabilité : tous</option>
+              <option value="email">Avec email</option>
+              <option value="reseaux">Contactable via réseaux</option>
+            </select>
+          </div>
+
+          <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border p-3">
+            {cibles.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Aucun lead ne correspond à ces filtres.
+              </p>
+            )}
+            {cibles.slice(0, 60).map((l) => (
+              <div
+                key={l.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{l.nom ?? l.id}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {[l.activite, l.commune].filter(Boolean).join(" · ") || "—"}
+                  </p>
+                </div>
+                <GoogleBadge note={l.note_google} avis={l.nb_avis_google} />
+              </div>
+            ))}
+            {cibles.length > 60 && (
+              <p className="pt-1 text-center text-xs text-muted-foreground">
+                +{cibles.length - 60} autre(s) lead(s)
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-primary-soft px-4 py-3">

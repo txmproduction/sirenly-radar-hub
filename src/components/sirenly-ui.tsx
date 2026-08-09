@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { googleMeta } from "@/lib/sirenly";
 import { cn } from "@/lib/utils";
 
 export function PageHeader({
@@ -65,4 +66,15 @@ export function EmptyState({ titre, texte }: { titre: string; texte?: string }) 
       {texte && <p className="mt-1 max-w-sm text-xs text-muted-foreground">{texte}</p>}
     </div>
   );
+}
+
+export function GoogleBadge({
+  note,
+  avis,
+}: {
+  note: string | null | undefined;
+  avis: string | null | undefined;
+}) {
+  const meta = googleMeta(note, avis);
+  return <Pill label={meta.label} classes={meta.classes} />;
 }
