@@ -1,233 +1,195 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Phone, Star } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { EmptyState, PageHeader, Pill } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUTS, statutClasses, statutLabel, useRealtime } from "@/lib/sirenly";
+import { STATUTS, formatDate, statutMeta, useRealtime } from "@/lib/sirenly";
+
+type Search = { q?: string };
 
 export const Route = createFileRoute("/leads/")({
+  validateSearch: (search: Record<string, unknown>): Search => ({
+    q: typeof search["q"] === "string" ? search["q"] : undefined,
+  }),
   head: () => ({
     meta: [
-      { title: "Qualification des leads — Sirenly" },
+      { title: "Tous les leads — Sirenly" },
       {
         name: "description",
-        content: "Filtrez, qualifiez et planifiez les rendez-vous de vos leads en temps réel.",
+        content: "Liste complète des leads : filtres par statut, campagne, commune et fiche Google.",
       },
-      { property: "og:title", content: "Qualification des leads — Sirenly" },
+      { property: "og:title", content: "Tous les leads — Sirenly" },
       {
         property: "og:description",
-        content: "Filtrez, qualifiez et planifiez les rendez-vous de vos leads.",
+        content: "Qualifiez et suivez tous vos prospects B2B au même endroit.",
       },
     ],
   }),
   component: LeadsPage,
 });
 
-type Lead = {
-  id: string;
-  nom: string | null;
-  commune: string | null;
-  activite: string | null;
-  telephone: string | null;
-  note_google: string | null;
-  nb_avis_google: string | null;
-  statut: string | null;
-  notes: string | null;
-  rdv_date: string | null;
-  rdv_heure: string | null;
-};
-
 function LeadsPage() {
-  useRealtime("leads", ["leads"]);
-  const queryClient = useQueryClient();
-  const [filtre, setFiltre] = useState("tous");
-  const [recherche, setRecherche] = useState("");
+  const { q: qInit } = Route.useSearch();
+  useRealtime("leads", ["leads-liste"]);
+  const [q, setQ] = useState(qInit ?? "");
+  const [statut, setStatut] = useState("tous");
+  const [campagne, setCampagne] = useState("toutes");
+  const [google, setGoogle] = useState("tous");
+  const [commune, setCommune] = useState("toutes");
 
-  const { data: leads = [], isLoading } = useQuery({
-    queryKey: ["leads"],
+  const { data } = useQuery({
+    queryKey: ["leads-liste"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leads")
-        .select(
-          "id, nom, commune, activite, telephone, note_google, nb_avis_google, statut, notes, rdv_date, rdv_heure",
-        )
-        .order("date_maj", { ascending: false })
-        .limit(500);
-      if (error) throw error;
-      return (data ?? []) as Lead[];
+      const [leads, campagnes] = await Promise.all([
+        supabase.from("leads").select("*").order("date_maj", { ascending: false }),
+        supabase.from("campagnes").select("id, nom"),
+      ]);
+      return { leads: leads.data ?? [], campagnes: campagnes.data ?? [] };
     },
   });
 
-  const update = useMutation({
-    mutationFn: async ({
-      id,
-      patch,
-    }: {
-      id: string;
-      patch: { statut?: string; notes?: string; rdv_date?: string; rdv_heure?: string };
-    }) => {
-      const { error } = await supabase
-        .from("leads")
-        .update({ ...patch, date_maj: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["leads"] });
-      toast.success("Lead mis à jour");
-    },
-    onError: (e: Error) => toast.error("Mise à jour impossible", { description: e.message }),
+  const communes = Array.from(
+    new Set((data?.leads ?? []).map((l) => l.commune).filter(Boolean) as string[]),
+  ).sort();
+
+  const leads = (data?.leads ?? []).filter((l) => {
+    const okQ = !q || (l.nom ?? "").toLowerCase().includes(q.toLowerCase());
+    const okStatut = statut === "tous" || (l.statut ?? "") === statut;
+    const okCamp = campagne === "toutes" || l.campagne_id === campagne;
+    const okGoogle =
+      google === "tous" || (google === "oui" ? Boolean(l.note_google) : !l.note_google);
+    const okCommune = commune === "toutes" || l.commune === commune;
+    return okQ && okStatut && okCamp && okGoogle && okCommune;
   });
 
-  const visibles = leads.filter((l) => {
-    const okStatut = filtre === "tous" || (l.statut ?? "non_qualifie") === filtre;
-    const q = recherche.trim().toLowerCase();
-    const okRecherche =
-      !q ||
-      [l.nom, l.commune, l.activite].some((v) => (v ?? "").toLowerCase().includes(q));
-    return okStatut && okRecherche;
-  });
+  const nomCampagne = (id: string | null) =>
+    data?.campagnes.find((c) => c.id === id)?.nom ?? "—";
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {visibles.length} lead(s) affiché(s) · synchronisation temps réel
-          </p>
-        </div>
+      <PageHeader titre="Tous les leads" sousTitre={`${leads.length} lead(s) affiché(s)`} />
 
-        <div className="flex flex-wrap gap-2">
-          <Input
-            value={recherche}
-            onChange={(e) => setRecherche(e.target.value)}
-            placeholder="Rechercher…"
-            className="w-48"
-          />
-          <Select value={filtre} onValueChange={setFiltre}>
-            <SelectTrigger className="w-52">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="tous">Tous les statuts</SelectItem>
-              {STATUTS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </header>
-
-      {isLoading && <p className="text-sm text-muted-foreground">Chargement…</p>}
-      {!isLoading && visibles.length === 0 && (
-        <p className="panel p-6 text-sm text-muted-foreground">
-          Aucun lead ne correspond. Lancez le radar depuis la page Génération.
-        </p>
-      )}
-
-      <div className="space-y-4">
-        {visibles.map((lead) => (
-          <article key={lead.id} className="panel p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <Link
-                  to="/leads/$id"
-                  params={{ id: lead.id }}
-                  className="text-base font-bold hover:text-primary"
-                >
-                  {lead.nom ?? "Sans nom"}
-                </Link>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {[lead.commune, lead.activite].filter(Boolean).join(" · ") || "—"}
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  {lead.telephone && (
-                    <span className="inline-flex items-center gap-1">
-                      <Phone className="size-3.5" /> {lead.telephone}
-                    </span>
-                  )}
-                  {lead.note_google && (
-                    <span className="inline-flex items-center gap-1 text-accent">
-                      <Star className="size-3.5" /> {lead.note_google}
-                      {lead.nb_avis_google ? ` (${lead.nb_avis_google})` : ""}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <span
-                className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statutClasses(lead.statut)}`}
-              >
-                {statutLabel(lead.statut)}
-              </span>
-            </div>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <Select
-                value={lead.statut ?? "non_qualifie"}
-                onValueChange={(value) => update.mutate({ id: lead.id, patch: { statut: value } })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUTS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="date"
-                defaultValue={lead.rdv_date ?? ""}
-                onBlur={(e) =>
-                  e.target.value !== (lead.rdv_date ?? "") &&
-                  update.mutate({ id: lead.id, patch: { rdv_date: e.target.value } })
-                }
-              />
-              <Input
-                type="time"
-                defaultValue={lead.rdv_heure ?? ""}
-                onBlur={(e) =>
-                  e.target.value !== (lead.rdv_heure ?? "") &&
-                  update.mutate({ id: lead.id, patch: { rdv_heure: e.target.value } })
-                }
-              />
-            </div>
-
-            <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-              <Textarea
-                defaultValue={lead.notes ?? ""}
-                placeholder="Notes de qualification…"
-                rows={2}
-                onBlur={(e) =>
-                  e.target.value !== (lead.notes ?? "") &&
-                  update.mutate({ id: lead.id, patch: { notes: e.target.value } })
-                }
-              />
-              <Button asChild variant="secondary">
-                <Link to="/leads/$id" params={{ id: lead.id }}>
-                  Voir la fiche
-                </Link>
-              </Button>
-            </div>
-          </article>
-        ))}
+      <div className="panel flex flex-wrap gap-2 p-4">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Rechercher par nom…"
+          className="h-9 min-w-[180px] flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+        />
+        <select
+          value={statut}
+          onChange={(e) => setStatut(e.target.value)}
+          className="h-9 rounded-lg border border-border bg-card px-3 text-sm"
+        >
+          <option value="tous">Tous les statuts</option>
+          {STATUTS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={campagne}
+          onChange={(e) => setCampagne(e.target.value)}
+          className="h-9 rounded-lg border border-border bg-card px-3 text-sm"
+        >
+          <option value="toutes">Toutes campagnes</option>
+          {(data?.campagnes ?? []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nom}
+            </option>
+          ))}
+        </select>
+        <select
+          value={google}
+          onChange={(e) => setGoogle(e.target.value)}
+          className="h-9 rounded-lg border border-border bg-card px-3 text-sm"
+        >
+          <option value="tous">Fiche Google : tous</option>
+          <option value="oui">Avec fiche Google</option>
+          <option value="non">Sans fiche Google</option>
+        </select>
+        <select
+          value={commune}
+          onChange={(e) => setCommune(e.target.value)}
+          className="h-9 rounded-lg border border-border bg-card px-3 text-sm"
+        >
+          <option value="toutes">Toutes communes</option>
+          {communes.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
       </div>
+
+      {leads.length === 0 ? (
+        <EmptyState
+          titre="Aucun lead"
+          texte="Lancez le radar depuis la page Génération pour alimenter votre base."
+        />
+      ) : (
+        <div className="panel overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                {[
+                  "Nom",
+                  "Contact",
+                  "Activité",
+                  "Commune",
+                  "Téléphone",
+                  "Note Google",
+                  "Statut",
+                  "Campagne",
+                  "Dernière activité",
+                ].map((h) => (
+                  <th key={h} className="th-label px-4 py-3 text-left">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map((l) => {
+                const meta = statutMeta(l.statut);
+                return (
+                  <tr key={l.id} className="border-b border-border last:border-0 hover:bg-muted/50">
+                    <td className="px-4 py-3">
+                      <Link
+                        to="/leads/$id"
+                        params={{ id: l.id }}
+                        className="font-medium hover:text-primary"
+                      >
+                        {l.nom ?? l.id}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{l.contact || "—"}</td>
+                    <td className="max-w-[220px] truncate px-4 py-3 text-muted-foreground">
+                      {l.activite || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{l.commune || "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{l.telephone || "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {l.note_google ? `${l.note_google} (${l.nb_avis_google || 0})` : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Pill label={meta.label} classes={meta.classes} />
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {nomCampagne(l.campagne_id)}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatDate(l.derniere_activite ?? l.date_maj)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
