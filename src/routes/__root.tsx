@@ -120,7 +120,14 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-const NAV = [
+type NavItem = {
+  to: "/" | "/radar" | "/leads" | "/reponses";
+  label: string;
+  icon: typeof LayoutDashboard;
+  title: string;
+};
+
+const NAV: { section: string; items: NavItem[] }[] = [
   {
     section: "Pilotage",
     items: [
@@ -135,9 +142,10 @@ const NAV = [
       { to: "/reponses", label: "Réponses", icon: MessageSquareText, title: "Réponses formulaire" },
     ],
   },
-] as const;
+];
 
-const ALL_NAV = NAV.flatMap((g) => g.items);
+const ALL_NAV: NavItem[] = NAV.flatMap((g) => g.items);
+
 
 function Shell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
