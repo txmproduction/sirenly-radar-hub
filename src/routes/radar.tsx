@@ -32,8 +32,11 @@ export const Route = createFileRoute("/radar")({
 function RadarPage() {
   const qc = useQueryClient();
   const lancer = useServerFn(generateLeads);
+  const lot = useServerFn(enrichirLot);
   const reparer = useServerFn(reparerEmailsInvalides);
   const [reparation, setReparation] = useState(false);
+  const [progression, setProgression] = useState<{ faits: number; total: number } | null>(null);
+
 
   async function lancerReparation() {
     setReparation(true);
