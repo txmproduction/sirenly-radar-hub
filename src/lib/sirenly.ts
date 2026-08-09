@@ -166,3 +166,57 @@ export function extrait(text: string | null | undefined, max = 120): string {
   const t = (text ?? "").replace(/\s+/g, " ").trim();
   return t.length > max ? `${t.slice(0, max)}…` : t || "—";
 }
+
+// ——— Présence Google ———
+export type PresenceGoogle = "avec" | "vide" | "sans";
+
+export function presenceGoogle(
+  note: string | null | undefined,
+  avis: string | null | undefined,
+): PresenceGoogle {
+  if (!note) return "sans";
+  return Number(avis ?? 0) > 0 ? "avec" : "vide";
+}
+
+export function googleMeta(note: string | null | undefined, avis: string | null | undefined) {
+  const etat = presenceGoogle(note, avis);
+  if (etat === "avec") {
+    return {
+      etat,
+      label: `${note} ⭐ · ${Number(avis ?? 0)} avis`,
+      classes: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    };
+  }
+  if (etat === "vide") {
+    return {
+      etat,
+      label: "Fiche vide, 0 avis",
+      classes: "border-orange-200 bg-orange-50 text-orange-700",
+    };
+  }
+  return {
+    etat,
+    label: "Pas de fiche Google",
+    classes: "border-orange-200 bg-orange-50 text-orange-700",
+  };
+}
+
+export const FILTRES_GOOGLE = [
+  { value: "tous", label: "Présence Google : tous" },
+  { value: "avec", label: "Avec fiche Google" },
+  { value: "sans", label: "Sans fiche Google" },
+  { value: "vide", label: "Fiche vide (0 avis)" },
+];
+
+export function contactableViaReseaux(lead: {
+  email?: string | null;
+  instagram_url?: string | null;
+  linkedin_url?: string | null;
+  tiktok_url?: string | null;
+  facebook_url?: string | null;
+}): boolean {
+  return (
+    !lead.email &&
+    Boolean(lead.instagram_url || lead.linkedin_url || lead.tiktok_url || lead.facebook_url)
+  );
+}
