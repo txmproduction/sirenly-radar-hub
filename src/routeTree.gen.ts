@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as RadarRouteImport } from './routes/radar'
 import { Route as ReponsesRouteImport } from './routes/reponses'
@@ -29,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
 const InboxRoute = InboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParametresRoute = ParametresRouteImport.update({
+  id: '/parametres',
+  path: '/parametres',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PipelineRoute = PipelineRouteImport.update({
@@ -81,6 +87,7 @@ const ApiPublicReceiveEmailWebhookRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/parametres': typeof ParametresRoute
   '/pipeline': typeof PipelineRoute
   '/radar': typeof RadarRoute
   '/reponses': typeof ReponsesRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/parametres': typeof ParametresRoute
   '/pipeline': typeof PipelineRoute
   '/radar': typeof RadarRoute
   '/reponses': typeof ReponsesRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/parametres': typeof ParametresRoute
   '/pipeline': typeof PipelineRoute
   '/radar': typeof RadarRoute
   '/reponses': typeof ReponsesRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/inbox'
+    | '/parametres'
     | '/pipeline'
     | '/radar'
     | '/reponses'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/inbox'
+    | '/parametres'
     | '/pipeline'
     | '/radar'
     | '/reponses'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/inbox'
+    | '/parametres'
     | '/pipeline'
     | '/radar'
     | '/reponses'
@@ -163,6 +175,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   InboxRoute: typeof InboxRoute
+  ParametresRoute: typeof ParametresRoute
   PipelineRoute: typeof PipelineRoute
   RadarRoute: typeof RadarRoute
   ReponsesRoute: typeof ReponsesRoute
@@ -188,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parametres': {
+      id: '/parametres'
+      path: '/parametres'
+      fullPath: '/parametres'
+      preLoaderRoute: typeof ParametresRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pipeline': {
@@ -259,6 +279,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   InboxRoute: InboxRoute,
+  ParametresRoute: ParametresRoute,
   PipelineRoute: PipelineRoute,
   RadarRoute: RadarRoute,
   ReponsesRoute: ReponsesRoute,
