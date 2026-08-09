@@ -97,33 +97,29 @@ function StatCard({
   label,
   value,
   hint,
-  icon: Icon,
   tone,
 }: {
   label: string;
   value: string;
   hint: string;
-  icon: typeof Target;
   tone: "primary" | "accent" | "success";
 }) {
-  const tones = {
-    primary: "bg-primary/15 text-primary",
-    accent: "bg-accent/15 text-accent",
-    success: "bg-success/15 text-success",
+  const bars = {
+    primary: "bg-primary",
+    accent: "bg-accent",
+    success: "bg-success",
   } as const;
   return (
-    <div className="panel p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {label}
-          </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight">{value}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
-        </div>
-        <span className={`grid size-10 place-items-center rounded-xl ${tones[tone]}`}>
-          <Icon className="size-5" />
+    <div className="group rounded-3xl border border-border bg-card p-6 transition-colors hover:border-primary/40">
+      <p className="mb-2 text-sm font-medium text-muted-foreground">{label}</p>
+      <div className="flex items-end justify-between gap-3">
+        <p className="font-display text-4xl font-bold">{value}</p>
+        <span className="shrink-0 rounded-lg bg-secondary px-2 py-1 text-xs text-muted-foreground">
+          {hint}
         </span>
+      </div>
+      <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-secondary">
+        <div className={`h-full w-0 transition-all duration-1000 group-hover:w-full ${bars[tone]}`} />
       </div>
     </div>
   );
@@ -135,123 +131,180 @@ function Dashboard() {
   useRealtime("reponses_formulaire", ["dashboard"]);
   const { data, isLoading } = useDashboardData();
 
-  return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Tableau de bord</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Vue d'ensemble de votre prospection en temps réel.
-        </p>
-      </header>
+  const chart = data?.chart ?? [];
+  const chartVide = chart.every((c) => c.leads === 0);
+  const derniers = data?.derniers ?? [];
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+  return (
+    <div className="space-y-8">
+      <div className="grid gap-6 md:grid-cols-3">
         <StatCard
           label="Leads qualifiés ce mois"
           value={isLoading ? "—" : String(data?.qualifiesMois ?? 0)}
-          hint="Statut différent de « non qualifié »"
-          icon={Target}
+          hint="Ce mois-ci"
           tone="primary"
         />
         <StatCard
           label="Emails envoyés"
           value={isLoading ? "—" : String(data?.emails ?? 0)}
-          hint="Total des envois enregistrés"
-          icon={Mail}
+          hint="Total"
           tone="accent"
         />
         <StatCard
           label="Taux de réponse"
           value={isLoading ? "—" : `${data?.taux ?? 0} %`}
-          hint={`${data?.reponses ?? 0} réponse(s) au formulaire`}
-          icon={Percent}
+          hint={`${data?.reponses ?? 0} réponse(s)`}
           tone="success"
         />
       </div>
 
-      <section className="panel p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Leads générés — 7 derniers jours
-        </h2>
-        <div className="mt-4 h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data?.chart ?? []}>
-              <defs>
-                <linearGradient id="leadsFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.6} />
-                  <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-              <XAxis
-                dataKey="jour"
-                stroke="var(--color-muted-foreground)"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                allowDecimals={false}
-                stroke="var(--color-muted-foreground)"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                width={30}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--color-popover)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 12,
-                  color: "var(--color-foreground)",
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="leads"
-                stroke="var(--color-primary)"
-                strokeWidth={2}
-                fill="url(#leadsFill)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
+      <div className="grid gap-8 lg:grid-cols-3">
+        <section className="flex min-h-[400px] flex-col rounded-3xl border border-border bg-card p-8 lg:col-span-2">
+          <div className="mb-8 flex items-center justify-between gap-4">
+            <h2 className="font-display text-lg font-semibold">Activité de la semaine</h2>
+            <span className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-1 text-xs text-muted-foreground">
+              <span className="size-2 rounded-full bg-primary" />7 derniers jours
+            </span>
+          </div>
 
-      <section className="panel p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Derniers leads qualifiés
-        </h2>
-        <div className="mt-4 space-y-2">
-          {(data?.derniers ?? []).length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Aucun lead qualifié pour le moment. Lancez le radar pour commencer.
-            </p>
-          )}
-          {(data?.derniers ?? []).map((lead) => (
-            <Link
-              key={lead.id}
-              to="/leads/$id"
-              params={{ id: lead.id }}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-secondary"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{lead.nom}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {[lead.commune, lead.activite].filter(Boolean).join(" · ") || "—"}
-                </p>
+          <div className="relative flex-1">
+            {chartVide ? (
+              <div className="absolute inset-0 overflow-hidden rounded-2xl border-b border-l border-border">
+                <div className="dot-grid absolute inset-0 opacity-10" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+                  <div className="mb-4 grid size-16 place-items-center rounded-2xl bg-secondary">
+                    <BarChart3 className="size-8 text-muted-foreground" />
+                  </div>
+                  <p className="font-medium">Aucune donnée à afficher</p>
+                  <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                    Lancez votre première recherche BODACC pour voir vos statistiques apparaître
+                    ici.
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground">{formatDate(lead.date_maj)}</span>
-                <span
-                  className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statutClasses(lead.statut)}`}
-                >
-                  {statutLabel(lead.statut)}
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chart}>
+                  <defs>
+                    <linearGradient id="leadsFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.6} />
+                      <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--color-border)"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="jour"
+                    stroke="var(--color-muted-foreground)"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    stroke="var(--color-muted-foreground)"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    width={30}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--color-popover)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 12,
+                      color: "var(--color-foreground)",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="leads"
+                    stroke="var(--color-primary)"
+                    strokeWidth={2}
+                    fill="url(#leadsFill)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {chartVide && (
+            <div className="flex justify-between pt-4">
+              {chart.map((c) => (
+                <span key={c.jour} className="text-[10px] text-muted-foreground">
+                  {c.jour}
                 </span>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="flex flex-col rounded-3xl border border-border bg-card p-8">
+          <h2 className="mb-6 font-display text-lg font-semibold">Dernières opportunités</h2>
+
+          {derniers.length === 0 ? (
+            <div className="flex flex-1 flex-col gap-4">
+              <div className="flex items-center gap-4 rounded-2xl border border-dashed border-border p-4 opacity-40">
+                <div className="size-10 shrink-0 rounded-full bg-secondary" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-3 w-2/3 rounded bg-secondary" />
+                  <div className="h-2 w-1/2 rounded bg-secondary" />
+                </div>
               </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+              <div className="flex items-center gap-4 rounded-2xl border border-dashed border-border p-4 opacity-20">
+                <div className="size-10 shrink-0 rounded-full bg-secondary" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-3 w-1/3 rounded bg-secondary" />
+                  <div className="h-2 w-2/3 rounded bg-secondary" />
+                </div>
+              </div>
+              <div className="mt-auto text-center">
+                <p className="mb-6 text-sm text-muted-foreground">
+                  Votre pipeline est actuellement vide.
+                </p>
+                <Link
+                  to="/leads"
+                  className="block w-full rounded-xl border border-primary py-3 text-center font-medium text-primary transition-all hover:bg-primary hover:text-primary-foreground"
+                >
+                  Qualifier des leads
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {derniers.map((lead) => (
+                <Link
+                  key={lead.id}
+                  to="/leads/$id"
+                  params={{ id: lead.id }}
+                  className="block rounded-2xl border border-border bg-background/40 p-4 transition-colors hover:border-primary/40"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{lead.nom}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[lead.commune, lead.activite].filter(Boolean).join(" · ") || "—"}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statutClasses(lead.statut)}`}
+                    >
+                      {statutLabel(lead.statut)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    {formatDate(lead.date_maj)}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
+
