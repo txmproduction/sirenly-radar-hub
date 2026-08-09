@@ -150,6 +150,109 @@ function LeadDetail() {
           </section>
 
           <section className="panel p-6">
+            <h2 className="font-display text-lg font-bold">Présence en ligne</h2>
+            <div className="mt-4 space-y-3 text-sm">
+              <div>
+                <p className="th-label">Email</p>
+                {lead.email ? (
+                  <p>
+                    <a className="text-primary hover:underline" href={`mailto:${lead.email}`}>
+                      {lead.email}
+                    </a>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      source : {lead.email_source || "inconnue"}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Aucun email trouvé — contact par téléphone ou réseaux
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <p className="th-label">Site web</p>
+                {lead.site_web ? (
+                  <a
+                    className="text-primary hover:underline"
+                    href={lead.site_web}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {lead.site_web}
+                  </a>
+                ) : (
+                  <p className="text-muted-foreground">—</p>
+                )}
+              </div>
+
+              <div>
+                <p className="th-label">Fiche Google</p>
+                <p className="text-muted-foreground">
+                  {lead.note_google
+                    ? `${lead.note_google} ★ · ${lead.nb_avis_google || 0} avis`
+                    : "Aucune fiche"}
+                </p>
+              </div>
+
+              <div>
+                <p className="th-label">Fiches annuaires</p>
+                {annuaires.length === 0 ? (
+                  <p className="text-muted-foreground">—</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {annuaires.map((a) => (
+                      <li key={a.url}>
+                        <a
+                          className="text-primary hover:underline"
+                          href={a.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {a.source}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div>
+                <p className="th-label">Réseaux sociaux</p>
+                {reseaux.length === 0 ? (
+                  <p className="text-muted-foreground">—</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {reseaux.map(([label, url]) => (
+                      <a
+                        key={label}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full border border-border px-2.5 py-1 text-xs font-medium hover:bg-muted"
+                      >
+                        {label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((t) => (
+                    <Pill
+                      key={t}
+                      label={t.replace(/_/g, " ")}
+                      classes="border-border bg-muted text-muted-foreground"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="panel p-6">
             <h2 className="font-display text-lg font-bold">Emails envoyés</h2>
             <div className="mt-4 space-y-3">
               {data?.emails.length === 0 && <EmptyState titre="Aucun email envoyé" />}
