@@ -81,8 +81,9 @@ function Parametres() {
   const set = (k: string, value: unknown) => setForm((f) => ({ ...f, [k]: value }));
 
   async function enregistrer() {
-    const payload = { ...form, id: undefined };
-    delete payload["id"];
+    const { id: _ignore, ...rest } = form as Record<string, unknown>;
+    void _ignore;
+    const payload = rest as never;
     const existant = data?.params?.["id"];
     const { error } = existant
       ? await supabase.from("parametres").update(payload).eq("id", existant)
