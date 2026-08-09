@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { EmptyState, PageHeader, Pill } from "@/components/sirenly-ui";
+import { EmptyState, GoogleBadge, PageHeader, Pill } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CLASSIFICATIONS_EMAIL,
