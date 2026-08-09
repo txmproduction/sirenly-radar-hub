@@ -6,11 +6,11 @@ import { EmptyState, PageHeader, Pill } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { STATUTS, formatDate, statutMeta, useRealtime } from "@/lib/sirenly";
 
-type Search = { q?: string };
+type Search = { q: string };
 
 export const Route = createFileRoute("/leads/")({
   validateSearch: (search: Record<string, unknown>): Search => ({
-    q: typeof search["q"] === "string" ? search["q"] : undefined,
+    q: typeof search["q"] === "string" ? search["q"] : "",
   }),
   head: () => ({
     meta: [
