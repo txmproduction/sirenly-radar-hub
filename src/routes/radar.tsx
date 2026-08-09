@@ -49,11 +49,11 @@ function RadarPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Génération de leads</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Créations d'entreprises BODACC, filtrées puis enrichies avec Google Places.
         </p>
       </header>
+
 
       <section className="panel max-w-xl space-y-5 p-6">
         <div className="grid gap-4 sm:grid-cols-2">
