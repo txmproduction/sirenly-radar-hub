@@ -215,11 +215,18 @@ export const lancerCampagne = createServerFn({ method: "POST" })
     let envoyes = 0;
     let programmes = 0;
     let echecs = 0;
+    let exclus = 0;
     let jourDecalage = 1;
     let compteurJour = 0;
 
     for (const lead of leads ?? []) {
-      const destinataire = (lead.email as string | null) ?? "";
+      const destinataire = (lead.email as string | null)?.trim() ?? "";
+
+      // Garde-fou : aucun envoi ni mise en file sans adresse email valide.
+      if (!destinataire || !emailValide(destinataire)) {
+        exclus += 1;
+        continue;
+      }
 
       let sujet = campagne.sujet ?? "";
       let corps = campagne.corps ?? "";
@@ -237,8 +244,8 @@ export const lancerCampagne = createServerFn({ method: "POST" })
         corps = remplirTemplate(corps, lead);
       }
 
-      if (restant <= 0 || !destinataire) {
-        // File d'attente pour les jours suivants (ou faute d'adresse email)
+      if (restant <= 0) {
+        // Quota quotidien atteint : file d'attente pour les jours suivants
         const datePrevue = new Date();
         datePrevue.setDate(datePrevue.getDate() + jourDecalage);
         await supabase.from("file_envoi").insert({
@@ -246,7 +253,7 @@ export const lancerCampagne = createServerFn({ method: "POST" })
           lead_id: lead.id,
           sujet_genere: sujet,
           contenu_genere: corps,
-          statut: destinataire ? "programme" : "sans_email",
+          statut: "programme",
           date_prevue: datePrevue.toISOString().slice(0, 10),
         });
         programmes += 1;
@@ -298,7 +305,7 @@ export const lancerCampagne = createServerFn({ method: "POST" })
       .update({ statut: programmes > 0 ? "en_cours" : "terminee", date_maj: new Date().toISOString() })
       .eq("id", campagne.id);
 
-    return { envoyes, programmes, echecs };
+    return { envoyes, programmes, echecs, exclus };
   });
 
 /* --------------------------- Classification manuelle ------------------------- */

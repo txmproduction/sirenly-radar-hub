@@ -18,6 +18,41 @@ const TRANCHE_LABEL: Record<string, string> = {
   "42": "1000 à 1999 salariés",
 };
 
+/** Libellés INSEE des catégories juridiques les plus fréquentes (niveau III). */
+const FORME_JURIDIQUE_LABEL: Record<string, string> = {
+  "1000": "Entrepreneur individuel",
+  "5202": "SNC",
+  "5306": "Société en commandite simple",
+  "5498": "SARL",
+  "5499": "SARL",
+  "5410": "SARL",
+  "5415": "SARL",
+  "5426": "SARL",
+  "5458": "SARL",
+  "5485": "SARL (SELARL)",
+  "5505": "SA à conseil d'administration",
+  "5510": "SA à conseil d'administration",
+  "5599": "SA à conseil d'administration",
+  "5699": "SA à directoire",
+  "5710": "SAS",
+  "5720": "SASU",
+  "5785": "SAS (SELAS)",
+  "5800": "Société européenne",
+  "6220": "GIE",
+  "6540": "SCI",
+  "6521": "Société civile de placement immobilier",
+  "6599": "Société civile",
+  "9220": "Association déclarée",
+  "5460": "SARL",
+  "5470": "SARL",
+};
+
+function formeJuridique(libelle: string, code: string): string {
+  if (libelle) return libelle;
+  if (!code) return "";
+  return FORME_JURIDIQUE_LABEL[code] ?? FORME_JURIDIQUE_LABEL[code.slice(0, 2) + "00"] ?? code;
+}
+
 type ApiEtab = {
   siege?: Record<string, unknown>;
   nom_complet?: string;
@@ -27,6 +62,8 @@ type ApiEtab = {
   tranche_effectif_salarie?: string;
   dirigeants?: Array<{ prenoms?: string; nom?: string }>;
   nature_juridique?: string;
+  categorie_juridique_libelle?: string;
+  libelle_nature_juridique?: string;
 };
 
 function s(v: unknown): string {
@@ -95,9 +132,15 @@ export async function fetchEntreprisesEtablies(params: {
         commune,
         code_postal: s(siege["code_postal"]),
         adresse: s(siege["adresse"]).replace(/\s+/g, " "),
-        forme_juridique: s(e.nature_juridique),
+        forme_juridique: formeJuridique(
+          s(e.categorie_juridique_libelle) || s(e.libelle_nature_juridique),
+          s(e.nature_juridique),
+        ),
         siren: s(e.siren),
-        effectif: TRANCHE_LABEL[s(e.tranche_effectif_salarie)] ?? "Non renseigné",
+        effectif:
+          TRANCHE_LABEL[s(e.tranche_effectif_salarie)] ??
+          TRANCHE_LABEL[s(siege["tranche_effectif_salarie"])] ??
+          "Non renseigné",
       });
     }
   }

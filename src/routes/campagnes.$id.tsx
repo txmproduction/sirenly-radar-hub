@@ -1,9 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { EmptyState, PageHeader, Pill, StatCard } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { Mail, MessageSquare, Percent, Users } from "lucide-react";
+import { lancerCampagne } from "@/lib/sirenly.functions";
 import {
   classificationEmailMeta,
   formatDate,
@@ -32,6 +36,27 @@ export const Route = createFileRoute("/campagnes/$id")({
 function CampagneDetail() {
   const { id } = Route.useParams();
   useRealtime("emails_envoyes", ["campagne-detail"]);
+  const qc = useQueryClient();
+  const envoyer = useServerFn(lancerCampagne);
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+
+  async function lancer() {
+    setEnvoiEnCours(true);
+    try {
+      const r = await envoyer({ data: { campagneId: id } });
+      toast.success(
+        `${r.envoyes} email(s) envoyé(s), ${r.exclus} lead(s) exclu(s) faute d'email valide` +
+          (r.programmes ? `, ${r.programmes} programmé(s)` : "") +
+          (r.echecs ? `, ${r.echecs} échec(s)` : ""),
+      );
+      void qc.invalidateQueries({ queryKey: ["campagne-detail", id] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Envoi impossible");
+    } finally {
+      setEnvoiEnCours(false);
+    }
+  }
+
 
   const { data } = useQuery({
     queryKey: ["campagne-detail", id],
@@ -82,6 +107,13 @@ function CampagneDetail() {
         actions={
           <>
             <Pill label={meta.label} classes={meta.classes} />
+            <button
+              onClick={() => void lancer()}
+              disabled={envoiEnCours}
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+            >
+              {envoiEnCours ? "Envoi en cours…" : "Lancer l'envoi"}
+            </button>
             <Link
               to="/campagnes"
               className="rounded-lg border border-input bg-card px-3 py-2 text-sm font-medium hover:bg-muted"
