@@ -131,7 +131,11 @@ export const generateLeads = createServerFn({ method: "POST" })
       };
 
       if (existing) {
-        const { error } = await supabase.from("leads").update(base).eq("id", lead.id);
+        // Ne pas écraser une donnée existante par une valeur vide
+        const patch = Object.fromEntries(
+          Object.entries(base).filter(([, v]) => v !== null && v !== ""),
+        );
+        const { error } = await supabase.from("leads").update(patch).eq("id", lead.id);
         if (!error) misAJour += 1;
       } else {
         const { error } = await supabase.from("leads").insert({ id: lead.id, ...base });
