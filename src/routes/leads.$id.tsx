@@ -116,6 +116,20 @@ function LeadDetail() {
     ["Mise à jour", formatDate(lead.date_maj)],
   ];
 
+  const annuaires = (Array.isArray(lead.fiches_annuaires) ? lead.fiches_annuaires : []) as Array<{
+    source: string;
+    url: string;
+  }>;
+  const tags = (Array.isArray(lead.tags) ? lead.tags : []) as string[];
+  const reseaux = (
+    [
+      ["Facebook", lead.facebook_url],
+      ["Instagram", lead.instagram_url],
+      ["LinkedIn", lead.linkedin_url],
+      ["TikTok", lead.tiktok_url],
+    ] as Array<[string, string | null]>
+  ).filter((r): r is [string, string] => Boolean(r[1]));
+
   return (
     <div className="space-y-6">
       <PageHeader
