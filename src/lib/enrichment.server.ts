@@ -31,14 +31,81 @@ const BLOQUES = [
   "@2x",
 ];
 
+/** Domaines techniques / moteurs de recherche / plateformes : jamais un email d'entreprise. */
+export const DOMAINES_BLOQUES = [
+  "duckduckgo.com",
+  "google.com",
+  "googlemail.com",
+  "gstatic.com",
+  "bing.com",
+  "microsoft.com",
+  "yahoo.com",
+  "yandex.com",
+  "ecosia.org",
+  "qwant.com",
+  "brave.com",
+  "startpage.com",
+  "lilo.org",
+  "search.marcia.com",
+  "sentry.io",
+  "wixpress.com",
+  "wix.com",
+  "squarespace.com",
+  "shopify.com",
+  "wordpress.com",
+  "cloudflare.com",
+  "godaddy.com",
+  "ovh.net",
+  "sitew.com",
+  "jimdo.com",
+  "weebly.com",
+  "facebook.com",
+  "instagram.com",
+  "linkedin.com",
+  "tiktok.com",
+  "twitter.com",
+  "x.com",
+  "domain.com",
+  "email.com",
+  "test.com",
+  "localhost",
+];
+
+/** Parties locales génériques de plateforme (jamais un contact commercial réel). */
+const LOCALES_BLOQUEES = [
+  "error",
+  "error-lite",
+  "noreply",
+  "no-reply",
+  "donotreply",
+  "postmaster",
+  "abuse",
+  "webmaster",
+  "hostmaster",
+  "mailer-daemon",
+  "privacy",
+  "dpo",
+  "sentry",
+  "wordpress",
+  "root",
+  "admin@localhost",
+];
+
 const EXT_IMAGE = /\.(png|jpe?g|gif|webp|svg|css|js)$/i;
 
 export function emailValide(email: string): boolean {
   const e = email.toLowerCase().trim();
   if (!e || e.length > 120) return false;
   if (EXT_IMAGE.test(e)) return false;
-  return !BLOQUES.some((b) => e.includes(b));
+  if (BLOQUES.some((b) => e.includes(b))) return false;
+
+  const [locale = "", domaine = ""] = e.split("@");
+  if (!locale || !domaine || !domaine.includes(".")) return false;
+  if (LOCALES_BLOQUEES.includes(locale)) return false;
+  if (/^support@(le)?moteur/.test(e)) return false;
+  return !DOMAINES_BLOQUES.some((d) => domaine === d || domaine.endsWith(`.${d}`));
 }
+
 
 export function extraireEmails(html: string): string[] {
   const out = new Set<string>();
