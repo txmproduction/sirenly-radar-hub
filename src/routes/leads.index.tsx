@@ -71,7 +71,13 @@ function LeadsPage() {
   });
 
   const update = useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Lead> }) => {
+    mutationFn: async ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: { statut?: string; notes?: string; rdv_date?: string; rdv_heure?: string };
+    }) => {
       const { error } = await supabase
         .from("leads")
         .update({ ...patch, date_maj: new Date().toISOString() })
