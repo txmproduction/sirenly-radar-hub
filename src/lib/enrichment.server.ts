@@ -1,6 +1,11 @@
 /**
  * Cascade d'enrichissement email (8 étapes, arrêt au premier email valide).
  * Toutes les étapes sont "best effort" : une erreur réseau n'interrompt jamais la cascade.
+ *
+ * RÈGLE D'OR (anti faux positifs) : aucune donnée (email, téléphone, fiche, réseau
+ * social) n'est acceptée sans avoir vérifié que la page source correspond bien à
+ * l'entreprise du lead (nom + commune). En cas de doute : on ne remonte RIEN.
+ * Un champ vide est récupérable ; un champ faux détruit la crédibilité du fichier.
  */
 
 export type Presence = {
@@ -106,7 +111,6 @@ export function emailValide(email: string): boolean {
   return !DOMAINES_BLOQUES.some((d) => domaine === d || domaine.endsWith(`.${d}`));
 }
 
-
 export function extraireEmails(html: string): string[] {
   const out = new Set<string>();
   for (const m of html.matchAll(/mailto:([^"'?>\s]+)/gi)) {
@@ -149,6 +153,95 @@ function domaineDe(url: string): string {
   } catch {
     return "";
   }
+}
+
+/* ----------------------- Vérification d'identité du lead ----------------------- */
+
+function normaliser(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s@.-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Mots sans valeur d'identification (formes juridiques, civilités, mots génériques). */
+const MOTS_VIDES = new Set([
+  "sarl",
+  "sas",
+  "sasu",
+  "eurl",
+  "sci",
+  "snc",
+  "selarl",
+  "societe",
+  "entreprise",
+  "ets",
+  "etablissements",
+  "monsieur",
+  "madame",
+  "mademoiselle",
+  "les",
+  "des",
+  "the",
+  "and",
+  "chez",
+  "france",
+]);
+
+/**
+ * Tokens significatifs du nom de l'entreprise : mots de 3+ caractères, hors
+ * formes juridiques et mots génériques. C'est la "signature" du lead qu'on
+ * exige de retrouver dans toute page/URL avant d'en accepter la moindre donnée.
+ */
+function tokensNom(nom: string): string[] {
+  return normaliser(nom)
+    .split(" ")
+    .filter((t) => t.length >= 3 && !MOTS_VIDES.has(t));
+}
+
+/** Vrai si le texte (normalisé) contient au moins un token du nom. */
+function contientNom(texte: string, tokens: string[]): boolean {
+  if (tokens.length === 0) return false;
+  const t = normaliser(texte);
+  return tokens.some((tok) => t.includes(tok));
+}
+
+/** Vrai si le texte (normalisé) contient la commune du lead. */
+function contientCommune(texte: string, commune: string): boolean {
+  const c = normaliser(commune);
+  if (!c) return false;
+  return normaliser(texte).includes(c);
+}
+
+/**
+ * Une page tierce (annuaire, plateforme, réseau social, résultat de recherche)
+ * n'est considérée comme étant LA fiche du lead que si elle contient le nom
+ * ET la commune. Les deux : un homonyme dans une autre ville a le nom, un
+ * concurrent local a la commune — seul le bon établissement a les deux.
+ */
+function pageCorrespond(html: string, tokens: string[], commune: string): boolean {
+  if (!html) return false;
+  return contientNom(html, tokens) && contientCommune(html, commune);
+}
+
+/**
+ * Le site officiel du lead peut légitimement ne pas mentionner la commune
+ * (site vitrine minimaliste) : on exige le nom dans le domaine, OU nom +
+ * commune dans le contenu de la page d'accueil.
+ */
+async function siteAppartientAuLead(
+  site: string,
+  tokens: string[],
+  commune: string,
+): Promise<boolean> {
+  const dom = domaineDe(site);
+  if (!dom) return false;
+  if (contientNom(dom.replace(/[.-]/g, " "), tokens)) return true;
+  const html = await getText(site.startsWith("http") ? site : `https://${site}`);
+  return pageCorrespond(html, tokens, commune);
 }
 
 /* ---------------------------- Étape 1 : site web ---------------------------- */
@@ -257,9 +350,37 @@ async function rechercheWeb(query: string): Promise<{ html: string; urls: string
   return { html, urls };
 }
 
-async function chercherFiche(nom: string, commune: string, a: Annuaire): Promise<string> {
+/**
+ * Cherche LA fiche du lead sur un annuaire/plateforme donné.
+ * Contrairement à l'ancienne version (première URL du bon domaine = acceptée),
+ * on teste jusqu'à 3 candidats et on ne retient une fiche que si :
+ *   - son URL contient un token du nom (slug), ET
+ *   - le CONTENU de la page contient nom + commune.
+ * On renvoie aussi le HTML déjà téléchargé pour éviter un second fetch.
+ */
+async function chercherFiche(
+  tokens: string[],
+  commune: string,
+  a: Annuaire,
+  nom: string,
+): Promise<{ url: string; html: string }> {
   const { urls } = await rechercheWeb(`site:${a.domaine} ${nom} ${commune}`);
-  return urls.find((u) => domaineDe(u).endsWith(a.domaine)) ?? "";
+  const candidats = urls.filter((u) => domaineDe(u).endsWith(a.domaine)).slice(0, 3);
+  for (const url of candidats) {
+    const html = await getText(url);
+    // La vérification décisive est le CONTENU de la page : nom + commune.
+    // (Le slug d'URL n'est pas fiable, certaines plateformes utilisent des IDs opaques.)
+    if (pageCorrespond(html, tokens, commune)) {
+      return { url, html };
+    }
+  }
+  return { url: "", html: "" };
+}
+
+/** Extrait un téléphone français d'une page DÉJÀ vérifiée comme étant celle du lead. */
+function extraireTelephone(html: string): string {
+  const tel = html.match(/0[1-9](?:[ .-]?\d{2}){4}/)?.[0] ?? "";
+  return tel ? tel.replace(/[.-]/g, " ") : "";
 }
 
 /* --------------------------- Étape 7 : MX + patterns --------------------------- */
@@ -297,7 +418,15 @@ export async function enrichirPresence(lead: {
     tags: [],
   };
 
-  const requete = `${lead.nom} ${lead.commune}`.trim();
+  const tokens = tokensNom(lead.nom);
+
+  // Sans token identifiable, impossible de vérifier quoi que ce soit :
+  // on ne tente AUCUN enrichissement tiers plutôt que de matcher au hasard.
+  if (tokens.length === 0) {
+    p.tags.push("nom_non_identifiable");
+    if (!p.email) p.tags.push("telephone_uniquement");
+    return p;
+  }
 
   const poser = (email: string, source: string) => {
     if (!p.email && email && emailValide(email)) {
@@ -306,93 +435,115 @@ export async function enrichirPresence(lead: {
     }
   };
 
-  // Étape 1 — site web officiel
+  // Étape 0 — VALIDATION du site web fourni en entrée.
+  // Le site peut venir d'un ancien enrichissement pollué (mauvais match Google
+  // Places) : s'il n'appartient manifestement pas au lead, on le VIDE, ce qui
+  // neutralise aussi les étapes 1, 2 et 7 qui en dépendent.
+  if (p.site_web) {
+    const ok = await siteAppartientAuLead(p.site_web, tokens, lead.commune);
+    if (!ok) {
+      p.site_web = "";
+      p.tags.push("site_web_rejete");
+    }
+  }
+
+  // Étape 1 — site web officiel (désormais garanti comme étant celui du lead)
   if (p.site_web) poser(await etapeSiteWeb(p.site_web), "site_web");
 
-  // Étape 2 — WHOIS / RDAP
-  let domaine = domaineDe(p.site_web);
+  // Étape 2 — WHOIS / RDAP (uniquement sur un domaine validé)
+  const domaine = domaineDe(p.site_web);
   if (!p.email && domaine) poser(await etapeWhois(domaine), "whois_rdap");
 
-  // Étape 3 — annuaires généralistes
+  // Étape 3 — annuaires généralistes (fiche acceptée seulement si nom + commune vérifiés)
   for (const a of ANNUAIRES_GENERALISTES) {
-    const url = await chercherFiche(lead.nom, lead.commune, a);
-    if (!url) continue;
-    p.fiches_annuaires.push({ source: a.source, url });
+    const fiche = await chercherFiche(tokens, lead.commune, a, lead.nom);
+    if (!fiche.url) continue;
+    p.fiches_annuaires.push({ source: a.source, url: fiche.url });
+    if (!p.telephone) p.telephone = extraireTelephone(fiche.html);
     if (p.email) continue;
-    const emails = extraireEmails(await getText(url));
+    const emails = extraireEmails(fiche.html);
     if (emails[0]) poser(emails[0], `annuaire:${a.source}`);
   }
 
-  // Étape 4 — plateformes sectorielles
-  const hay = `${lead.activite} ${lead.nom}`
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  // Étape 4 — plateformes sectorielles (même règle de vérification)
+  const hay = normaliser(`${lead.activite} ${lead.nom}`);
   const verticales = VERTICALES.filter((v) => v.mots.some((m) => hay.includes(m))).flatMap(
     (v) => v.annuaires,
   );
   for (const a of verticales) {
-    const url = await chercherFiche(lead.nom, lead.commune, a);
-    if (!url) continue;
-    p.fiches_annuaires.push({ source: a.source, url });
+    const fiche = await chercherFiche(tokens, lead.commune, a, lead.nom);
+    if (!fiche.url) continue;
+    p.fiches_annuaires.push({ source: a.source, url: fiche.url });
+    if (!p.telephone) p.telephone = extraireTelephone(fiche.html);
     if (p.email) continue;
-    const html = await getText(url);
-    const emails = extraireEmails(html);
+    const emails = extraireEmails(fiche.html);
     if (emails[0]) poser(emails[0], `plateforme:${a.source}`);
-    if (!p.telephone) {
-      const tel = html.match(/0[1-9](?:[ .-]?\d{2}){4}/)?.[0] ?? "";
-      if (tel) p.telephone = tel.replace(/[.-]/g, " ");
+  }
+
+  // Étape 5 — réseaux sociaux : une URL n'est enregistrée que si la page du
+  // profil contient nom + commune (fini les profils homonymes d'autres villes).
+  for (const r of RESEAUX) {
+    const fiche = await chercherFiche(
+      tokens,
+      lead.commune,
+      { source: r.domaine, domaine: r.domaine },
+      lead.nom,
+    );
+    if (!fiche.url) continue;
+    (p[r.cle] as string) = fiche.url;
+    if (p.email || r.domaine !== "facebook.com") continue;
+    const about = await getText(fiche.url.replace(/\/?$/, "/about"));
+    if (pageCorrespond(about, tokens, lead.commune) || contientNom(about, tokens)) {
+      const emails = extraireEmails(about);
+      if (emails[0]) poser(emails[0], "facebook");
     }
   }
 
-  // Étape 5 — réseaux sociaux (URLs toujours loggées, même sans email)
-  for (const r of RESEAUX) {
-    const url = await chercherFiche(lead.nom, lead.commune, {
-      source: r.domaine,
-      domaine: r.domaine,
-    });
-    if (!url) continue;
-    (p[r.cle] as string) = url;
-    if (p.email || r.domaine !== "facebook.com") continue;
-    const about = await getText(url.replace(/\/?$/, "/about"));
-    const emails = extraireEmails(about);
-    if (emails[0]) poser(emails[0], "facebook");
-  }
-
-  // Étape 6 — recherche web directe (aucun faux positif : page d'erreur => étape suivante)
+  // Étape 6 — recherche web directe. L'ancienne version prenait le premier
+  // email de la page de résultats (mélange de tous les résultats : n'importe
+  // quel email pouvait remonter). Désormais :
+  //   - on n'extrait JAMAIS d'email du HTML brut de la page de résultats ;
+  //   - on visite jusqu'à 3 pages candidates, et on n'accepte un email que si
+  //     la page contient nom + commune, OU si le domaine de l'email contient
+  //     lui-même un token du nom (ex : contact@mejdicoiffure.fr).
   if (!p.email) {
-    for (const variante of [`"${lead.nom}" "${lead.commune}" "@"`, `"${lead.nom}" ${lead.commune} email contact`]) {
+    for (const variante of [
+      `"${lead.nom}" "${lead.commune}" "@"`,
+      `"${lead.nom}" ${lead.commune} email contact`,
+    ]) {
       const { html, urls } = await rechercheWeb(variante);
-      // Requête échouée / bloquée / sans résultat exploitable : on n'enregistre rien.
-      const utilisables = urls.filter(
-        (u) => /^https?:\/\//.test(u) && !DOMAINES_BLOQUES.some((d) => domaineDe(u).endsWith(d)),
-      );
+      const utilisables = urls
+        .filter(
+          (u) => /^https?:\/\//.test(u) && !DOMAINES_BLOQUES.some((d) => domaineDe(u).endsWith(d)),
+        )
+        .slice(0, 3);
       if (!html || utilisables.length === 0) continue;
 
-      const emails = extraireEmails(html);
-      if (emails[0]) {
-        poser(emails[0], "recherche_web");
-        break;
-      }
-      const premier = utilisables[0];
-      if (premier) {
-        const page = extraireEmails(await getText(premier));
-        if (page[0]) {
-          poser(page[0], "recherche_web");
+      for (const u of utilisables) {
+        const page = await getText(u);
+        if (!page) continue;
+        const emails = extraireEmails(page);
+        if (emails.length === 0) continue;
+        const pageOk = pageCorrespond(page, tokens, lead.commune);
+        const candidat = pageOk
+          ? emails[0]
+          : emails.find((e) => contientNom((e.split("@")[1] ?? "").replace(/[.-]/g, " "), tokens));
+        if (candidat) {
+          poser(candidat, "recherche_web");
           break;
         }
       }
+      if (p.email) break;
     }
   }
 
-
-  // Étape 7 — déduction + vérification MX (pas de SMTP sortant sur l'infra edge)
-  if (!p.email && !domaine && p.fiches_annuaires.length === 0) domaine = "";
+  // Étape 7 — déduction contact@domaine + vérification MX.
+  // Uniquement sur un domaine validé à l'étape 0 (donc appartenant au lead).
   if (!p.email && domaine && (await aDesMX(domaine))) {
     poser(`contact@${domaine}`, "deduction_mx");
   }
 
-  // Étape 8 — échec
+  // Étape 8 — bilan
   const reseaux = [p.facebook_url, p.instagram_url, p.linkedin_url, p.tiktok_url].filter(Boolean);
   if (!p.email) {
     p.tags.push("telephone_uniquement");

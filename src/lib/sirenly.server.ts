@@ -136,6 +136,26 @@ export async function fetchBodacc(departement: string, jours: number): Promise<B
   return out;
 }
 
+/** Normalise pour comparaison : minuscule, sans accents, espaces multiples réduits. */
+function normaliser(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Vrai si l'adresse Google correspond bien à la commune/code postal du lead. */
+function adresseCorrespond(formattedAddress: string, lead: BodaccLead): boolean {
+  const addr = normaliser(formattedAddress);
+  const commune = normaliser(lead.commune);
+  const cp = (lead.code_postal ?? "").trim();
+  if (commune && addr.includes(commune)) return true;
+  if (cp && addr.includes(cp)) return true;
+  return false;
+}
+
 export async function enrichWithGoogle(
   lead: BodaccLead,
   apiKey: string,
@@ -153,31 +173,50 @@ export async function enrichWithGoogle(
     const res = await fetch(search.toString());
     if (!res.ok) return empty;
     const data = (await res.json()) as {
-      results?: Array<{ place_id?: string; rating?: number; user_ratings_total?: number }>;
+      results?: Array<{
+        place_id?: string;
+        rating?: number;
+        user_ratings_total?: number;
+        formatted_address?: string;
+      }>;
     };
-    const first = data.results?.[0];
-    if (!first) return empty;
+
+    // On ne prend plus le premier résultat au hasard : on cherche le premier
+    // résultat (parmi les 5 premiers) dont l'adresse correspond bien à la
+    // commune/code postal du lead. Sans correspondance, on ne remonte rien
+    // plutôt que de coller les infos d'un établissement sans rapport.
+    const candidats = (data.results ?? []).slice(0, 5);
+    const match = candidats.find((c) => adresseCorrespond(c.formatted_address ?? "", lead));
+    if (!match) return empty;
 
     let telephone = "";
     let site_web = "";
-    if (first.place_id) {
+    if (match.place_id) {
       const details = new URL("https://maps.googleapis.com/maps/api/place/details/json");
-      details.searchParams.set("place_id", first.place_id);
-      details.searchParams.set("fields", "formatted_phone_number,website");
+      details.searchParams.set("place_id", match.place_id);
+      details.searchParams.set("fields", "formatted_phone_number,website,formatted_address");
       details.searchParams.set("key", apiKey);
       const dRes = await fetch(details.toString());
       if (dRes.ok) {
         const dJson = (await dRes.json()) as {
-          result?: { formatted_phone_number?: string; website?: string };
+          result?: {
+            formatted_phone_number?: string;
+            website?: string;
+            formatted_address?: string;
+          };
         };
+        // Double vérification sur la fiche détaillée : l'adresse peut différer
+        // de celle du résultat de recherche (établissements multi-adresses).
+        const detailAddr = dJson.result?.formatted_address ?? "";
+        if (detailAddr && !adresseCorrespond(detailAddr, lead)) return empty;
         telephone = dJson.result?.formatted_phone_number ?? "";
         site_web = dJson.result?.website ?? "";
       }
     }
 
     return {
-      note_google: first.rating != null ? String(first.rating) : "",
-      nb_avis_google: first.user_ratings_total != null ? String(first.user_ratings_total) : "",
+      note_google: match.rating != null ? String(match.rating) : "",
+      nb_avis_google: match.user_ratings_total != null ? String(match.user_ratings_total) : "",
       telephone,
       site_web,
     };
