@@ -139,8 +139,13 @@ export async function fetchBodacc(departement: string, jours: number): Promise<B
 export async function enrichWithGoogle(
   lead: BodaccLead,
   apiKey: string,
-): Promise<{ note_google: string; nb_avis_google: string; telephone: string }> {
-  const empty = { note_google: "", nb_avis_google: "", telephone: "" };
+): Promise<{
+  note_google: string;
+  nb_avis_google: string;
+  telephone: string;
+  site_web: string;
+}> {
+  const empty = { note_google: "", nb_avis_google: "", telephone: "", site_web: "" };
   try {
     const search = new URL("https://maps.googleapis.com/maps/api/place/textsearch/json");
     search.searchParams.set("query", `${lead.nom} ${lead.commune}`);
@@ -154,17 +159,19 @@ export async function enrichWithGoogle(
     if (!first) return empty;
 
     let telephone = "";
+    let site_web = "";
     if (first.place_id) {
       const details = new URL("https://maps.googleapis.com/maps/api/place/details/json");
       details.searchParams.set("place_id", first.place_id);
-      details.searchParams.set("fields", "formatted_phone_number");
+      details.searchParams.set("fields", "formatted_phone_number,website");
       details.searchParams.set("key", apiKey);
       const dRes = await fetch(details.toString());
       if (dRes.ok) {
         const dJson = (await dRes.json()) as {
-          result?: { formatted_phone_number?: string };
+          result?: { formatted_phone_number?: string; website?: string };
         };
         telephone = dJson.result?.formatted_phone_number ?? "";
+        site_web = dJson.result?.website ?? "";
       }
     }
 
@@ -172,6 +179,7 @@ export async function enrichWithGoogle(
       note_google: first.rating != null ? String(first.rating) : "",
       nb_avis_google: first.user_ratings_total != null ? String(first.user_ratings_total) : "",
       telephone,
+      site_web,
     };
   } catch {
     return empty;
