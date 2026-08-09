@@ -149,7 +149,7 @@ export const enrichirLot = createServerFn({ method: "POST" })
 
     const { data: lot } = await supabase
       .from("leads")
-      .select("id, nom, commune, activite")
+      .select("id, nom, commune, activite, adresse, code_postal")
       .eq("enrichissement_en_cours", true)
       .order("date_maj", { ascending: true })
       .limit(data.taille);
@@ -167,8 +167,8 @@ export const enrichirLot = createServerFn({ method: "POST" })
                   commune: lead.commune ?? "",
                   contact: "",
                   activite: lead.activite ?? "",
-                  code_postal: "",
-                  adresse: "",
+                  code_postal: lead.code_postal ?? "",
+                  adresse: lead.adresse ?? "",
                   forme_juridique: "",
                 },
                 googleKey,
@@ -188,10 +188,13 @@ export const enrichirLot = createServerFn({ method: "POST" })
             .update({
               note_google: g.note_google || null,
               nb_avis_google: g.nb_avis_google || null,
-              telephone: presence.telephone || g.telephone || null,
+              telephone: presence.telephone || null,
               email: presence.email || null,
               email_source: presence.email_source || null,
-              site_web: presence.site_web || g.site_web || null,
+              // IMPORTANT : pas de fallback "|| g.site_web" ici — si la cascade
+              // a rejeté le site (site_web_rejete), le réinjecter annulerait
+              // la vérification. presence.site_web est la seule valeur validée.
+              site_web: presence.site_web || null,
               facebook_url: presence.facebook_url || null,
               instagram_url: presence.instagram_url || null,
               linkedin_url: presence.linkedin_url || null,
@@ -423,7 +426,9 @@ export const reparerEmailsInvalides = createServerFn({ method: "POST" }).handler
       tags: presence.tags,
       date_maj: new Date().toISOString(),
     };
-    if (presence.site_web) patch["site_web"] = presence.site_web;
+    // Toujours écrire site_web (même vide) : si la cascade a rejeté un site
+    // pollué (tag site_web_rejete), il faut le NETTOYER en base, pas le laisser.
+    patch["site_web"] = presence.site_web || null;
     if (presence.telephone) patch["telephone"] = presence.telephone;
     if (presence.facebook_url) patch["facebook_url"] = presence.facebook_url;
     if (presence.instagram_url) patch["instagram_url"] = presence.instagram_url;
