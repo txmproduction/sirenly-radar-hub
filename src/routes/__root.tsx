@@ -220,8 +220,9 @@ function Shell({ children }: { children: ReactNode }) {
                 className="size-8 shrink-0 rounded-lg object-cover ring-1 ring-border lg:hidden"
               />
               <h1 className="truncate font-display text-xl font-bold sm:text-2xl">
-                {current.title}
+                {title}
               </h1>
+
             </div>
             <Link
               to="/radar"
