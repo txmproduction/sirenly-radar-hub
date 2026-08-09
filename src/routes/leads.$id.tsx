@@ -201,13 +201,33 @@ function LeadDetail() {
               </div>
 
               <div>
-                <p className="th-label">Fiche Google</p>
-                <p className="text-muted-foreground">
-                  {lead.note_google
-                    ? `${lead.note_google} ★ · ${lead.nb_avis_google || 0} avis`
-                    : "Aucune fiche"}
-                </p>
+                <p className="th-label">Téléphone</p>
+                {lead.telephone ? (
+                  <a className="text-primary hover:underline" href={`tel:${lead.telephone}`}>
+                    {lead.telephone}
+                  </a>
+                ) : (
+                  <p className="text-muted-foreground">—</p>
+                )}
               </div>
+
+              <div>
+                <p className="th-label">Fiche Google</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <GoogleBadge note={lead.note_google} avis={lead.nb_avis_google} />
+                  <a
+                    className="text-xs text-primary hover:underline"
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                      [lead.nom, lead.commune].filter(Boolean).join(" "),
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Voir sur Google Maps
+                  </a>
+                </div>
+              </div>
+
 
               <div>
                 <p className="th-label">Fiches annuaires</p>
