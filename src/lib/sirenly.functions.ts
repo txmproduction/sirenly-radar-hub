@@ -415,6 +415,7 @@ export const lancerCampagne = createServerFn({ method: "POST" })
 /* --------------------------- Classification manuelle ------------------------- */
 
 export const classifierReponse = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ reponseId: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
     const supabase = await admin();
@@ -431,7 +432,9 @@ export const classifierReponse = createServerFn({ method: "POST" })
 
 /* ------------------- Réparation des emails invalides en base ------------------- */
 
-export const reparerEmailsInvalides = createServerFn({ method: "POST" }).handler(async () => {
+export const reparerEmailsInvalides = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
   const supabase = await admin();
 
   const { data: leads } = await supabase
