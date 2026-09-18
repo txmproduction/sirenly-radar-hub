@@ -224,7 +224,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </nav>
 
-      <div className="p-4">
+      <div className="space-y-3 p-4">
+        <SignOutButton />
         <p className="text-[11px] text-muted-foreground">
           BODACC · Recherche d'Entreprises · Google Places
         </p>
