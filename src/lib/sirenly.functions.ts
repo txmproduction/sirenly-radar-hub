@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { SECTEURS } from "./secteurs";
 import { fetchBodacc, enrichWithGoogle, isExcluded, normalize } from "./sirenly.server";
 import { fetchEntreprisesEtablies } from "./entreprises.server";
@@ -9,6 +10,9 @@ import { aiPersonalize, aiClassifyReply } from "./ai.server";
 import { envoyerEmailBrevo } from "./brevo.server";
 
 const LIMITE_QUOTIDIENNE = 300;
+// Safety net : plafond quotidien d'appels d'enrichissement (Google Places etc.),
+// indépendant du quota d'envoi d'emails.
+const ENRICHISSEMENT_QUOTIDIEN_MAX = 1000;
 
 async function admin() {
   const { createClient } = await import("@supabase/supabase-js");
@@ -32,6 +36,7 @@ function nafDe(secteurs: string[]): string[] {
 /* ------------------------------ Radar / ciblage ------------------------------ */
 
 export const generateLeads = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z
       .object({
@@ -46,6 +51,18 @@ export const generateLeads = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const supabase = await admin();
+
+    // Plafond quotidien de génération : empêche un abus même authentifié.
+    const debutJourGen = new Date();
+    debutJourGen.setHours(0, 0, 0, 0);
+    const { count: creesAujourdhui } = await supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .gte("date_maj", debutJourGen.toISOString());
+    if ((creesAujourdhui ?? 0) >= ENRICHISSEMENT_QUOTIDIEN_MAX) {
+      throw new Error("Plafond quotidien de génération atteint, réessayez demain");
+    }
+
     const googleKey = process.env["GOOGLE_PLACES_API_KEY"] ?? "";
     const motsCles = motsClesDe(data.secteurs, data.autreSecteur);
 
@@ -140,12 +157,25 @@ export const generateLeads = createServerFn({ method: "POST" })
  * évite tout risque de timeout sur de gros volumes.
  */
 export const enrichirLot = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z.object({ taille: z.number().int().min(1).max(10).default(8) }).parse(data ?? {}),
   )
   .handler(async ({ data }) => {
     const supabase = await admin();
     const googleKey = process.env["GOOGLE_PLACES_API_KEY"] ?? "";
+
+    // Plafond quotidien d'enrichissement (filet de sécurité facturation Google).
+    const debutJourEnr = new Date();
+    debutJourEnr.setHours(0, 0, 0, 0);
+    const { count: enrichisAujourdhui } = await supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("enrichissement_en_cours", false)
+      .gte("date_maj", debutJourEnr.toISOString());
+    if ((enrichisAujourdhui ?? 0) >= ENRICHISSEMENT_QUOTIDIEN_MAX) {
+      return { traites: 0, restants: -1, bloque: true };
+    }
 
     const { data: lot } = await supabase
       .from("leads")
@@ -227,6 +257,7 @@ export const enrichirLot = createServerFn({ method: "POST" })
 /* ------------------------------- Aperçu IA ---------------------------------- */
 
 export const apercuIA = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z.object({ brief: z.string().min(1), leadIds: z.array(z.string()).min(1).max(3) }).parse(data),
   )
@@ -253,6 +284,7 @@ function remplirTemplate(txt: string, lead: Record<string, unknown>): string {
 }
 
 export const lancerCampagne = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ campagneId: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
     const supabase = await admin();
@@ -383,6 +415,7 @@ export const lancerCampagne = createServerFn({ method: "POST" })
 /* --------------------------- Classification manuelle ------------------------- */
 
 export const classifierReponse = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ reponseId: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
     const supabase = await admin();
@@ -399,7 +432,9 @@ export const classifierReponse = createServerFn({ method: "POST" })
 
 /* ------------------- Réparation des emails invalides en base ------------------- */
 
-export const reparerEmailsInvalides = createServerFn({ method: "POST" }).handler(async () => {
+export const reparerEmailsInvalides = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
   const supabase = await admin();
 
   const { data: leads } = await supabase
