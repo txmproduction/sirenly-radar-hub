@@ -6,7 +6,7 @@ import { EmptyState, PageHeader, Pill } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { CLASSIFICATIONS, classificationMeta, formatDate, useRealtime } from "@/lib/sirenly";
 
-export const Route = createFileRoute("/reponses")({
+export const Route = createFileRoute("/_authenticated/reponses")({
   head: () => ({
     meta: [
       { title: "Réponses formulaire — Sirenly" },

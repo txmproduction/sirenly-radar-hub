@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { LIMITE_QUOTIDIENNE, formatDate, useRealtime } from "@/lib/sirenly";
 
-export const Route = createFileRoute("/parametres")({
+export const Route = createFileRoute("/_authenticated/parametres")({
   head: () => ({
     meta: [
       { title: "Paramètres — Sirenly" },

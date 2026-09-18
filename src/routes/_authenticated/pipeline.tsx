@@ -7,7 +7,7 @@ import { GoogleBadge, PageHeader } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { PIPELINE, colonnePipeline, formatDate, useRealtime } from "@/lib/sirenly";
 
-export const Route = createFileRoute("/pipeline")({
+export const Route = createFileRoute("/_authenticated/pipeline")({
   head: () => ({
     meta: [
       { title: "Pipeline — Sirenly" },

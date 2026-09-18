@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { apercuIA } from "@/lib/sirenly.functions";
 import { FILTRES_GOOGLE, STATUTS, contactableViaReseaux, presenceGoogle } from "@/lib/sirenly";
 
-export const Route = createFileRoute("/campagnes/nouvelle")({
+export const Route = createFileRoute("/_authenticated/campagnes/nouvelle")({
   head: () => ({
     meta: [
       { title: "Nouvelle campagne — Sirenly" },

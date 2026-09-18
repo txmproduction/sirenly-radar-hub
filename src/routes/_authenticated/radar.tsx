@@ -10,7 +10,7 @@ import { SECTEURS, TRANCHES_EFFECTIF, secteurLabel } from "@/lib/secteurs";
 import { enrichirLot, generateLeads, reparerEmailsInvalides } from "@/lib/sirenly.functions";
 import { formatDate } from "@/lib/sirenly";
 
-export const Route = createFileRoute("/radar")({
+export const Route = createFileRoute("/_authenticated/radar")({
   head: () => ({
     meta: [
       { title: "Génération de leads — Sirenly" },

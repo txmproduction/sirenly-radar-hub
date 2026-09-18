@@ -13,7 +13,7 @@ import {
   useRealtime,
 } from "@/lib/sirenly";
 
-export const Route = createFileRoute("/inbox")({
+export const Route = createFileRoute("/_authenticated/inbox")({
   head: () => ({
     meta: [
       { title: "Boîte principale — Sirenly" },
