@@ -5,7 +5,7 @@ import { EmptyState, PageHeader, Pill } from "@/components/sirenly-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { statutCampagneMeta, useRealtime } from "@/lib/sirenly";
 
-export const Route = createFileRoute("/campagnes/")({
+export const Route = createFileRoute("/_authenticated/campagnes/")({
   head: () => ({
     meta: [
       { title: "Campagnes — Sirenly" },

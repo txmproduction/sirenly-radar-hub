@@ -15,7 +15,7 @@ import {
   useRealtime,
 } from "@/lib/sirenly";
 
-export const Route = createFileRoute("/campagnes/$id")({
+export const Route = createFileRoute("/_authenticated/campagnes/$id")({
   head: () => ({
     meta: [
       { title: "Détail campagne — Sirenly" },

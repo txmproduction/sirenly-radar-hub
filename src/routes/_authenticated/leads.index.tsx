@@ -17,7 +17,7 @@ import {
 
 type Search = { q: string };
 
-export const Route = createFileRoute("/leads/")({
+export const Route = createFileRoute("/_authenticated/leads/")({
   validateSearch: (search: Record<string, unknown>): Search => ({
     q: typeof search["q"] === "string" ? search["q"] : "",
   }),
