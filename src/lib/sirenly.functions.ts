@@ -157,12 +157,25 @@ export const generateLeads = createServerFn({ method: "POST" })
  * évite tout risque de timeout sur de gros volumes.
  */
 export const enrichirLot = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z.object({ taille: z.number().int().min(1).max(10).default(8) }).parse(data ?? {}),
   )
   .handler(async ({ data }) => {
     const supabase = await admin();
     const googleKey = process.env["GOOGLE_PLACES_API_KEY"] ?? "";
+
+    // Plafond quotidien d'enrichissement (filet de sécurité facturation Google).
+    const debutJourEnr = new Date();
+    debutJourEnr.setHours(0, 0, 0, 0);
+    const { count: enrichisAujourdhui } = await supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("enrichissement_en_cours", false)
+      .gte("date_maj", debutJourEnr.toISOString());
+    if ((enrichisAujourdhui ?? 0) >= ENRICHISSEMENT_QUOTIDIEN_MAX) {
+      return { traites: 0, restants: -1, bloque: true };
+    }
 
     const { data: lot } = await supabase
       .from("leads")
@@ -244,6 +257,7 @@ export const enrichirLot = createServerFn({ method: "POST" })
 /* ------------------------------- Aperçu IA ---------------------------------- */
 
 export const apercuIA = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z.object({ brief: z.string().min(1), leadIds: z.array(z.string()).min(1).max(3) }).parse(data),
   )
@@ -270,6 +284,7 @@ function remplirTemplate(txt: string, lead: Record<string, unknown>): string {
 }
 
 export const lancerCampagne = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ campagneId: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
     const supabase = await admin();
