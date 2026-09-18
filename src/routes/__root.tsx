@@ -280,15 +280,57 @@ function Shell({ children }: { children: ReactNode }) {
   );
 }
 
+function SignOutButton() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  return (
+    <button
+      onClick={async () => {
+        await queryClient.cancelQueries();
+        queryClient.clear();
+        await supabase.auth.signOut();
+        void navigate({ to: "/auth", replace: true });
+      }}
+      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+    >
+      <LogOut className="size-4" />
+      Déconnexion
+    </button>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      void router.invalidate();
+      if (event !== "SIGNED_OUT") void queryClient.invalidateQueries();
+    });
+    return () => data.subscription.unsubscribe();
+  }, [router, queryClient]);
+
+  const content = (
+    <>
+      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+      <Outlet />
+    </>
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Shell>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-      </Shell>
+      {pathname === "/auth" ? (
+        <>
+          {content}
+          <Toaster position="top-right" richColors />
+        </>
+      ) : (
+        <Shell>{content}</Shell>
+      )}
     </QueryClientProvider>
   );
 }
