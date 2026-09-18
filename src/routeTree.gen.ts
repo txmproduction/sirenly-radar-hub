@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedParametresRouteImport } from './routes/_authenticated/parametres'
@@ -22,63 +24,72 @@ import { Route as AuthenticatedLeadsIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedLeadsIdRouteImport } from './routes/_authenticated/leads.$id'
 import { Route as ApiPublicReceiveEmailWebhookRouteImport } from './routes/api/public/receive-email-webhook'
 
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
-  id: '/_authenticated/',
-  path: '/',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
-  id: '/_authenticated/inbox',
+  id: '/inbox',
   path: '/inbox',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedParametresRoute = AuthenticatedParametresRouteImport.update({
-  id: '/_authenticated/parametres',
+  id: '/parametres',
   path: '/parametres',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPipelineRoute = AuthenticatedPipelineRouteImport.update({
-  id: '/_authenticated/pipeline',
+  id: '/pipeline',
   path: '/pipeline',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedRadarRoute = AuthenticatedRadarRouteImport.update({
-  id: '/_authenticated/radar',
+  id: '/radar',
   path: '/radar',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedReponsesRoute = AuthenticatedReponsesRouteImport.update({
-  id: '/_authenticated/reponses',
+  id: '/reponses',
   path: '/reponses',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCampagnesIndexRoute =
   AuthenticatedCampagnesIndexRouteImport.update({
-    id: '/_authenticated/campagnes/',
+    id: '/campagnes/',
     path: '/campagnes/',
-    getParentRoute: () => rootRouteImport,
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedCampagnesIdRoute =
   AuthenticatedCampagnesIdRouteImport.update({
-    id: '/_authenticated/campagnes/$id',
+    id: '/campagnes/$id',
     path: '/campagnes/$id',
-    getParentRoute: () => rootRouteImport,
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedCampagnesNouvelleRoute =
   AuthenticatedCampagnesNouvelleRouteImport.update({
-    id: '/_authenticated/campagnes/nouvelle',
+    id: '/campagnes/nouvelle',
     path: '/campagnes/nouvelle',
-    getParentRoute: () => rootRouteImport,
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedLeadsIndexRoute = AuthenticatedLeadsIndexRouteImport.update({
-  id: '/_authenticated/leads/',
+  id: '/leads/',
   path: '/leads/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLeadsIdRoute = AuthenticatedLeadsIdRouteImport.update({
-  id: '/_authenticated/leads/$id',
+  id: '/leads/$id',
   path: '/leads/$id',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const ApiPublicReceiveEmailWebhookRoute =
   ApiPublicReceiveEmailWebhookRouteImport.update({
@@ -88,12 +99,13 @@ const ApiPublicReceiveEmailWebhookRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof AuthenticatedIndexRoute
+  '/auth': typeof AuthRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/parametres': typeof AuthenticatedParametresRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/radar': typeof AuthenticatedRadarRoute
   '/reponses': typeof AuthenticatedReponsesRoute
-  '/': typeof AuthenticatedIndexRoute
   '/campagnes/$id': typeof AuthenticatedCampagnesIdRoute
   '/campagnes/nouvelle': typeof AuthenticatedCampagnesNouvelleRoute
   '/leads/$id': typeof AuthenticatedLeadsIdRoute
@@ -102,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/leads/': typeof AuthenticatedLeadsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/auth': typeof AuthRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/parametres': typeof AuthenticatedParametresRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
@@ -117,6 +130,8 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/parametres': typeof AuthenticatedParametresRoute
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
@@ -133,12 +148,13 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
+    | '/auth'
     | '/inbox'
     | '/parametres'
     | '/pipeline'
     | '/radar'
     | '/reponses'
-    | '/'
     | '/campagnes/$id'
     | '/campagnes/nouvelle'
     | '/leads/$id'
@@ -147,6 +163,7 @@ export interface FileRouteTypes {
     | '/leads/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/auth'
     | '/inbox'
     | '/parametres'
     | '/pipeline'
@@ -161,6 +178,8 @@ export interface FileRouteTypes {
     | '/leads'
   id:
     | '__root__'
+    | '/_authenticated'
+    | '/auth'
     | '/_authenticated/inbox'
     | '/_authenticated/parametres'
     | '/_authenticated/pipeline'
@@ -176,98 +195,103 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
-  AuthenticatedParametresRoute: typeof AuthenticatedParametresRoute
-  AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
-  AuthenticatedRadarRoute: typeof AuthenticatedRadarRoute
-  AuthenticatedReponsesRoute: typeof AuthenticatedReponsesRoute
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedCampagnesIdRoute: typeof AuthenticatedCampagnesIdRoute
-  AuthenticatedCampagnesNouvelleRoute: typeof AuthenticatedCampagnesNouvelleRoute
-  AuthenticatedLeadsIdRoute: typeof AuthenticatedLeadsIdRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
   ApiPublicReceiveEmailWebhookRoute: typeof ApiPublicReceiveEmailWebhookRoute
-  AuthenticatedCampagnesIndexRoute: typeof AuthenticatedCampagnesIndexRoute
-  AuthenticatedLeadsIndexRoute: typeof AuthenticatedLeadsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/': {
       id: '/_authenticated/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/inbox': {
       id: '/_authenticated/inbox'
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof AuthenticatedInboxRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/parametres': {
       id: '/_authenticated/parametres'
       path: '/parametres'
       fullPath: '/parametres'
       preLoaderRoute: typeof AuthenticatedParametresRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/pipeline': {
       id: '/_authenticated/pipeline'
       path: '/pipeline'
       fullPath: '/pipeline'
       preLoaderRoute: typeof AuthenticatedPipelineRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/radar': {
       id: '/_authenticated/radar'
       path: '/radar'
       fullPath: '/radar'
       preLoaderRoute: typeof AuthenticatedRadarRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/reponses': {
       id: '/_authenticated/reponses'
       path: '/reponses'
       fullPath: '/reponses'
       preLoaderRoute: typeof AuthenticatedReponsesRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/campagnes/': {
       id: '/_authenticated/campagnes/'
       path: '/campagnes'
       fullPath: '/campagnes/'
       preLoaderRoute: typeof AuthenticatedCampagnesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/campagnes/$id': {
       id: '/_authenticated/campagnes/$id'
       path: '/campagnes/$id'
       fullPath: '/campagnes/$id'
       preLoaderRoute: typeof AuthenticatedCampagnesIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/campagnes/nouvelle': {
       id: '/_authenticated/campagnes/nouvelle'
       path: '/campagnes/nouvelle'
       fullPath: '/campagnes/nouvelle'
       preLoaderRoute: typeof AuthenticatedCampagnesNouvelleRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/leads/': {
       id: '/_authenticated/leads/'
       path: '/leads'
       fullPath: '/leads/'
       preLoaderRoute: typeof AuthenticatedLeadsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/leads/$id': {
       id: '/_authenticated/leads/$id'
       path: '/leads/$id'
       fullPath: '/leads/$id'
       preLoaderRoute: typeof AuthenticatedLeadsIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/public/receive-email-webhook': {
       id: '/api/public/receive-email-webhook'
@@ -279,7 +303,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
-const rootRouteChildren: RootRouteChildren = {
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
+  AuthenticatedParametresRoute: typeof AuthenticatedParametresRoute
+  AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
+  AuthenticatedRadarRoute: typeof AuthenticatedRadarRoute
+  AuthenticatedReponsesRoute: typeof AuthenticatedReponsesRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedCampagnesIdRoute: typeof AuthenticatedCampagnesIdRoute
+  AuthenticatedCampagnesNouvelleRoute: typeof AuthenticatedCampagnesNouvelleRoute
+  AuthenticatedLeadsIdRoute: typeof AuthenticatedLeadsIdRoute
+  AuthenticatedCampagnesIndexRoute: typeof AuthenticatedCampagnesIndexRoute
+  AuthenticatedLeadsIndexRoute: typeof AuthenticatedLeadsIndexRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
   AuthenticatedParametresRoute: AuthenticatedParametresRoute,
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
@@ -289,9 +327,17 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedCampagnesIdRoute: AuthenticatedCampagnesIdRoute,
   AuthenticatedCampagnesNouvelleRoute: AuthenticatedCampagnesNouvelleRoute,
   AuthenticatedLeadsIdRoute: AuthenticatedLeadsIdRoute,
-  ApiPublicReceiveEmailWebhookRoute: ApiPublicReceiveEmailWebhookRoute,
   AuthenticatedCampagnesIndexRoute: AuthenticatedCampagnesIndexRoute,
   AuthenticatedLeadsIndexRoute: AuthenticatedLeadsIndexRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
+  ApiPublicReceiveEmailWebhookRoute: ApiPublicReceiveEmailWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
