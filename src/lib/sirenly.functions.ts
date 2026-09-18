@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { SECTEURS } from "./secteurs";
 import { fetchBodacc, enrichWithGoogle, isExcluded, normalize } from "./sirenly.server";
 import { fetchEntreprisesEtablies } from "./entreprises.server";
@@ -9,6 +10,9 @@ import { aiPersonalize, aiClassifyReply } from "./ai.server";
 import { envoyerEmailBrevo } from "./brevo.server";
 
 const LIMITE_QUOTIDIENNE = 300;
+// Safety net : plafond quotidien d'appels d'enrichissement (Google Places etc.),
+// indépendant du quota d'envoi d'emails.
+const ENRICHISSEMENT_QUOTIDIEN_MAX = 1000;
 
 async function admin() {
   const { createClient } = await import("@supabase/supabase-js");
@@ -32,6 +36,7 @@ function nafDe(secteurs: string[]): string[] {
 /* ------------------------------ Radar / ciblage ------------------------------ */
 
 export const generateLeads = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z
       .object({
@@ -46,6 +51,18 @@ export const generateLeads = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const supabase = await admin();
+
+    // Plafond quotidien de génération : empêche un abus même authentifié.
+    const debutJourGen = new Date();
+    debutJourGen.setHours(0, 0, 0, 0);
+    const { count: creesAujourdhui } = await supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .gte("date_maj", debutJourGen.toISOString());
+    if ((creesAujourdhui ?? 0) >= ENRICHISSEMENT_QUOTIDIEN_MAX) {
+      throw new Error("Plafond quotidien de génération atteint, réessayez demain");
+    }
+
     const googleKey = process.env["GOOGLE_PLACES_API_KEY"] ?? "";
     const motsCles = motsClesDe(data.secteurs, data.autreSecteur);
 
